@@ -8,7 +8,7 @@ function App() {
   useEffect(() => {
     fetch("http://localhost:5000/api/products")
       .then((res) => res.json())
-      .then((data) => setProducts(data); setLoading(false))
+      .then((data) => { setProducts(data); setLoading(false); })
       .catch((err) => console.error("Error fetching products:", err));
   }, []);
 
