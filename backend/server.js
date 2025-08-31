@@ -2,7 +2,10 @@ const express = require("express");
 const app = express();
 const cors = require("cors");
 
-app.use(cors());
+app.use(cors({
+  origin: "http://localhost:5173"  // allow frontend to connect
+}));
+
 app.use(express.json());
 // Example API route
 app.get("/api/products", (req, res) => {
