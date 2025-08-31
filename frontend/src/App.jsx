@@ -2,12 +2,13 @@ import { useEffect, useState } from "react";
 
 function App() {
   const [products, setProducts] = useState([]);
+  const [loading, setLoading] = useState(true);
 
   // Fetch products from backend
   useEffect(() => {
     fetch("http://localhost:5000/api/products")
       .then((res) => res.json())
-      .then((data) => setProducts(data))
+      .then((data) => setProducts(data); setLoading(false))
       .catch((err) => console.error("Error fetching products:", err));
   }, []);
 
