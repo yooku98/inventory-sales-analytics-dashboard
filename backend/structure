@@ -1,0 +1,22 @@
+backend/
+│ server.js
+│ .env.example
+│ package.json
+│ knexfile.js            
+├── routes/
+│   ├── auth.js
+│   ├── products.js
+│   ├── upload.js
+├── controllers/
+│   ├── authController.js
+│   ├── productController.js
+│   └── uploadController.js
+├── middleware/
+│   ├── authMiddleware.js
+│   └── errorHandler.js
+└── models/
+    ├── db.js
+    ├── productModel.js
+    ├── userModel.js
+    └── inventoryModel.js
+    
