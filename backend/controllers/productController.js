@@ -17,5 +17,40 @@ export const addProduct = (req, res) => {
   res.status(201).json(newProduct);
 };
 
+export const getProductById = async (req, res, next) => {
+  try {
+    const product = await db("products").where({ id: req.params.id }).first();
+    if (!product) return res.status(404).json({ message: "Not found" });
+    res.json(product);
+  } catch (err) {
+    next(err);
+  }
+};
 
+
+export const updateProduct = async (req, res, next) => {
+  try {
+    const { name, stock, price } = req.body;
+    const [product] = await db("products")
+      .where({ id: req.params.id })
+      .update({ name, stock, price })
+      .returning("*");
+    if (!product) return res.status(404).json({ message: "Not found" });
+    res.json(product);
+  } catch (err) {
+    next(err);
+  }
+};
+
+export const deleteProduct = async (req, res, next) => {
+  try {
+    const deleted = await db("products")
+      .where({ id: req.params.id })
+      .del();
+    if (!deleted) return res.status(404).json({ message: "Not found" });
+    res.json({ message: "Deleted successfully" });
+  } catch (err) {
+    next(err);
+  }
+};
 
