@@ -1,4 +1,5 @@
 // backend/controllers/productController.js
+import db from "../db/knex.js";
 const products = [
   { id: 1, name: "Laptop", stock: 12, price: 900 },
   { id: 2, name: "Mouse", stock: 50, price: 20 },
