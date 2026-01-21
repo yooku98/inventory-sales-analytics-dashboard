@@ -18,8 +18,8 @@ const db = knex({
       : false
   },
   pool: {
-    min: 2,
-    max: 10,
+    min: 0,
+    max: 5,
     // Time before a connection is considered idle
     idleTimeoutMillis: 30000,
     // Time to wait for a connection to become available
