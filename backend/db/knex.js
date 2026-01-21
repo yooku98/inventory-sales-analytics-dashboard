@@ -56,7 +56,9 @@ const testConnection = async () => {
   } catch (error) {
     console.error('❌ Database connection failed:', error.message);
     console.error('Please check your DATABASE_URL or database credentials in .env');
-    process.exit(1);
+if (process.env.NODE_ENV !== 'production') {
+  process.exit(1);
+}
   }
 };
 
