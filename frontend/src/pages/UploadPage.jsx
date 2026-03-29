@@ -87,6 +87,23 @@ export default function UploadPage() {
                 <p className="text-xl font-bold text-red-700">{result.failed}</p>
               </div>
             </div>
+            {result.sheets && result.sheets.length > 1 && (
+              <div className="mt-3 space-y-2">
+                <p className="text-sm font-medium text-gray-700">Per sheet:</p>
+                {result.sheets.map((s, i) => (
+                  <div key={i} className="flex items-center justify-between bg-gray-50 rounded-lg px-4 py-2 text-sm">
+                    <span className="font-medium text-gray-900">{s.sheet}</span>
+                    {s.status === "skipped" ? (
+                      <span className="text-gray-400">Skipped — {s.reason}</span>
+                    ) : (
+                      <span className="text-gray-600">
+                        {s.type} — {s.inserted} inserted{s.failed > 0 ? `, ${s.failed} failed` : ""}
+                      </span>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
             {result.errors && result.errors.length > 0 && (
               <div className="mt-3 bg-yellow-50 border border-yellow-200 rounded-lg p-3 text-sm text-yellow-800">
                 <p className="font-medium mb-1">Errors:</p>
