@@ -6,7 +6,9 @@
       "Bash(node db/init.js)",
       "Bash(npx vite:*)",
       "Bash(npm run:*)",
-      "Bash(git rm:*)"
+      "Bash(git rm:*)",
+      "Bash(node -e \":*)",
+      "Bash(curl -s http://localhost:5000/health)"
     ]
   }
 }

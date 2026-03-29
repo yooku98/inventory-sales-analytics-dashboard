@@ -59,23 +59,45 @@ async function insertSales(rows, userId) {
   let failed = 0;
   const errors = [];
 
+  // Pre-fetch products for name-based lookups
+  const productsResult = await db.execute("SELECT id, name FROM products");
+  const productsByName = {};
+  for (const p of productsResult.rows) {
+    productsByName[p.name.toLowerCase()] = p.id;
+  }
+
   for (const row of rows) {
     try {
-      const product_id = parseInt(row.product_id);
-      const quantity = parseInt(row.quantity_sold || row.quantity);
+      // Resolve product_id: try direct ID first, then match by name
+      let product_id = parseInt(row.product_id) || null;
+      const productName = row.product || row.product_name || row.name;
+      if (!product_id && productName) {
+        product_id = productsByName[productName.toLowerCase()] || null;
+      }
+
+      const quantity = parseInt(row.quantity_sold || row.quantity || row.qty);
       const price = parseFloat(row.sale_price || row.price);
+      const total = parseFloat(row.total || row.total_amount) || quantity * price;
+
       if (!product_id || !quantity || isNaN(price)) {
         failed++;
-        errors.push(`Row skipped: missing product_id, quantity, or price`);
+        errors.push(`Row skipped: could not resolve product${productName ? ` "${productName}"` : ""}, quantity, or price`);
         continue;
       }
+
+      // Parse date — handle formats like "11 Mar 2026" or "2026-03-11"
+      let saleDate = row.sale_date || row.date || null;
+      if (saleDate && typeof saleDate === "string") {
+        const parsed = new Date(saleDate);
+        saleDate = isNaN(parsed) ? new Date().toISOString().split("T")[0] : parsed.toISOString().split("T")[0];
+      }
+      if (!saleDate) saleDate = new Date().toISOString().split("T")[0];
+
       await db.execute({
         sql: `INSERT INTO sales (product_id, quantity_sold, sale_price, total_amount, sale_date, customer_name, payment_method, notes, created_by)
               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
         args: [
-          product_id, quantity, price,
-          quantity * price,
-          row.sale_date || row.date || new Date().toISOString().split("T")[0],
+          product_id, quantity, price, total, saleDate,
           row.customer_name || row.customer || null,
           row.payment_method || row.payment || null,
           row.notes || null,
@@ -96,8 +118,8 @@ async function insertSales(rows, userId) {
 }
 
 function detectType(columns) {
-  if (columns.some((c) => ["name", "product_name", "price", "sku", "stock"].includes(c))) return "products";
-  if (columns.some((c) => ["product_id", "quantity_sold", "sale_price", "quantity"].includes(c))) return "sales";
+  if (columns.some((c) => ["name", "product_name", "sku", "stock", "reorder_level", "supplier"].includes(c)) && columns.includes("price")) return "products";
+  if (columns.some((c) => ["product_id", "quantity_sold", "sale_price", "quantity", "qty", "product", "customer", "customer_name", "payment"].includes(c))) return "sales";
   return null;
 }
 
