@@ -1,155 +1,113 @@
 // backend/db/init.js
-import db from "./knex.js";
+import db from "./turso.js";
+import bcrypt from "bcrypt";
 
 async function createTables() {
   try {
-    console.log('🔄 Starting database initialization...');
+    console.log("Starting database initialization...");
 
-    // Users Table
-    const usersExists = await db.schema.hasTable("users");
-    if (!usersExists) {
-      console.log('📝 Creating users table...');
-      await db.schema.createTable("users", (table) => {
-        table.increments("id").primary();
-        table.string("username", 255).notNullable().unique();
-        table.string("email", 255).notNullable().unique();
-        table.string("password", 255).notNullable(); // Will store hashed password
-        table.enum("role", ["owner", "staff"]).defaultTo("staff");
-        table.timestamps(true, true); // created_at, updated_at
-        
-        // Indexes for better query performance
-        table.index("email");
-        table.index("username");
-      });
-      console.log('✅ Users table created');
-    } else {
-      console.log('⏭️  Users table already exists');
-    }
+    await db.execute(`
+      CREATE TABLE IF NOT EXISTS users (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        username TEXT NOT NULL UNIQUE,
+        email TEXT NOT NULL UNIQUE,
+        password TEXT NOT NULL,
+        role TEXT NOT NULL DEFAULT 'staff' CHECK(role IN ('owner', 'staff')),
+        created_at TEXT DEFAULT (datetime('now')),
+        updated_at TEXT DEFAULT (datetime('now'))
+      )
+    `);
+    console.log("Users table ready");
 
-    // Products Table
-    const productsExists = await db.schema.hasTable("products");
-    if (!productsExists) {
-      console.log('📝 Creating products table...');
-      await db.schema.createTable("products", (table) => {
-        table.increments("id").primary();
-        table.string("name", 255).notNullable();
-        table.string("sku", 100).unique(); // Stock Keeping Unit
-        table.string("category", 100);
-        table.text("description");
-        table.decimal("price", 10, 2).notNullable().defaultTo(0);
-        table.integer("stock").notNullable().defaultTo(0);
-        table.integer("reorder_level").defaultTo(10); // Low stock threshold
-        table.string("supplier", 255);
-        table.timestamps(true, true);
-        
-        // Indexes
-        table.index("category");
-        table.index("stock");
-        table.index("sku");
-      });
-      console.log('✅ Products table created');
-    } else {
-      console.log('⏭️  Products table already exists');
-    }
+    await db.execute(`
+      CREATE TABLE IF NOT EXISTS products (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        name TEXT NOT NULL,
+        sku TEXT UNIQUE,
+        category TEXT,
+        description TEXT,
+        price REAL NOT NULL DEFAULT 0,
+        stock INTEGER NOT NULL DEFAULT 0,
+        reorder_level INTEGER DEFAULT 10,
+        supplier TEXT,
+        created_at TEXT DEFAULT (datetime('now')),
+        updated_at TEXT DEFAULT (datetime('now'))
+      )
+    `);
+    console.log("Products table ready");
 
-    // Sales Table
-    const salesExists = await db.schema.hasTable("sales");
-    if (!salesExists) {
-      console.log('📝 Creating sales table...');
-      await db.schema.createTable("sales", (table) => {
-        table.increments("id").primary();
-        table.integer("product_id").unsigned().notNullable();
-        table.integer("quantity_sold").notNullable();
-        table.decimal("sale_price", 10, 2).notNullable();
-        table.decimal("total_amount", 10, 2).notNullable(); // quantity * price
-        table.date("sale_date").notNullable();
-        table.string("customer_name", 255);
-        table.string("customer_email", 255);
-        table.string("payment_method", 50);
-        table.text("notes");
-        table.integer("created_by").unsigned(); // User who created the sale
-        table.timestamps(true, true);
-        
-        // Foreign keys
-        table.foreign("product_id").references("products.id").onDelete("CASCADE");
-        table.foreign("created_by").references("users.id").onDelete("SET NULL");
-        
-        // Indexes
-        table.index("product_id");
-        table.index("sale_date");
-        table.index("created_at");
-      });
-      console.log('✅ Sales table created');
-    } else {
-      console.log('⏭️  Sales table already exists');
-    }
+    await db.execute(`
+      CREATE TABLE IF NOT EXISTS sales (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        product_id INTEGER NOT NULL,
+        quantity_sold INTEGER NOT NULL,
+        sale_price REAL NOT NULL,
+        total_amount REAL NOT NULL,
+        sale_date TEXT NOT NULL,
+        customer_name TEXT,
+        customer_email TEXT,
+        payment_method TEXT,
+        notes TEXT,
+        created_by INTEGER,
+        created_at TEXT DEFAULT (datetime('now')),
+        updated_at TEXT DEFAULT (datetime('now')),
+        FOREIGN KEY (product_id) REFERENCES products(id) ON DELETE CASCADE,
+        FOREIGN KEY (created_by) REFERENCES users(id) ON DELETE SET NULL
+      )
+    `);
+    console.log("Sales table ready");
 
-    // Upload History Table (optional - track file uploads)
-    const uploadsExists = await db.schema.hasTable("upload_history");
-    if (!uploadsExists) {
-      console.log('📝 Creating upload_history table...');
-      await db.schema.createTable("upload_history", (table) => {
-        table.increments("id").primary();
-        table.string("filename", 255).notNullable();
-        table.string("file_type", 50); // csv, xlsx, etc.
-        table.integer("rows_processed").defaultTo(0);
-        table.integer("rows_successful").defaultTo(0);
-        table.integer("rows_failed").defaultTo(0);
-        table.text("error_log"); // JSON string of errors
-        table.integer("uploaded_by").unsigned();
-        table.timestamps(true, true);
-        
-        table.foreign("uploaded_by").references("users.id").onDelete("SET NULL");
-        table.index("uploaded_by");
-        table.index("created_at");
-      });
-      console.log('✅ Upload history table created');
-    } else {
-      console.log('⏭️  Upload history table already exists');
-    }
+    await db.execute(`
+      CREATE TABLE IF NOT EXISTS upload_history (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        filename TEXT NOT NULL,
+        file_type TEXT,
+        rows_processed INTEGER DEFAULT 0,
+        rows_successful INTEGER DEFAULT 0,
+        rows_failed INTEGER DEFAULT 0,
+        error_log TEXT,
+        uploaded_by INTEGER,
+        created_at TEXT DEFAULT (datetime('now')),
+        updated_at TEXT DEFAULT (datetime('now')),
+        FOREIGN KEY (uploaded_by) REFERENCES users(id) ON DELETE SET NULL
+      )
+    `);
+    console.log("Upload history table ready");
 
-    console.log('');
-    console.log('✅ All tables created successfully!');
-    console.log('');
-    console.log('📊 Database Schema:');
-    console.log('   - users');
-    console.log('   - products');
-    console.log('   - sales');
-    console.log('   - upload_history');
-    console.log('');
+    // Create indexes
+    await db.execute("CREATE INDEX IF NOT EXISTS idx_users_email ON users(email)");
+    await db.execute("CREATE INDEX IF NOT EXISTS idx_users_username ON users(username)");
+    await db.execute("CREATE INDEX IF NOT EXISTS idx_products_category ON products(category)");
+    await db.execute("CREATE INDEX IF NOT EXISTS idx_products_stock ON products(stock)");
+    await db.execute("CREATE INDEX IF NOT EXISTS idx_products_sku ON products(sku)");
+    await db.execute("CREATE INDEX IF NOT EXISTS idx_sales_product_id ON sales(product_id)");
+    await db.execute("CREATE INDEX IF NOT EXISTS idx_sales_sale_date ON sales(sale_date)");
+    await db.execute("CREATE INDEX IF NOT EXISTS idx_sales_created_at ON sales(created_at)");
+    await db.execute("CREATE INDEX IF NOT EXISTS idx_upload_history_uploaded_by ON upload_history(uploaded_by)");
+
+    console.log("All tables and indexes created successfully");
 
     // Insert default admin user if users table is empty
-    const userCount = await db("users").count("id as count").first();
-    if (userCount.count === "0" || userCount.count === 0) {
-      console.log('👤 Creating default admin user...');
-      
-      // You'll need to import bcrypt and hash the password
-      // For now, this is a placeholder - update with real hashed password
-      await db("users").insert({
-        username: "admin",
-        email: "admin@example.com",
-        password: "$2b$10$placeholder", // Replace with bcrypt.hash('admin123', 10)
-        role: "owner"
+    const result = await db.execute("SELECT COUNT(*) as count FROM users");
+    if (result.rows[0].count === 0) {
+      const hashedPassword = await bcrypt.hash("admin123", 10);
+      await db.execute({
+        sql: "INSERT INTO users (username, email, password, role) VALUES (?, ?, ?, ?)",
+        args: ["admin", "admin@example.com", hashedPassword, "owner"],
       });
-      
-      console.log('✅ Default admin user created');
-      console.log('   Email: admin@example.com');
-      console.log('   Password: admin123 (change this!)');
+      console.log("Default admin user created (admin@example.com / admin123)");
     }
 
+    console.log("Database initialization complete");
   } catch (error) {
-    console.error('❌ Database initialization error:', error);
+    console.error("Database initialization error:", error);
     throw error;
-  } finally {
-    // Close the connection
-    await db.destroy();
-    console.log('🔌 Database connection closed');
-    process.exit(0);
   }
 }
 
-// Run the initialization
-createTables().catch((err) => {
-  console.error("❌ Migration error:", err);
-  process.exit(1);
-});
+createTables()
+  .then(() => process.exit(0))
+  .catch((err) => {
+    console.error("Migration error:", err);
+    process.exit(1);
+  });

@@ -3,7 +3,7 @@ import express from "express";
 import bcrypt from "bcrypt";
 import jwt from "jsonwebtoken";
 import { body, validationResult } from "express-validator";
-import db from "../db/knex.js";
+import db from "../db/turso.js";
 import { asyncHandler } from "../middleware/errorHandler.js";
 import { authenticateToken } from "../middleware/auth.js";
 
@@ -15,7 +15,6 @@ router.post("/register", [
   body("email").isEmail().normalizeEmail(),
   body("password").isLength({ min: 6 })
 ], asyncHandler(async (req, res) => {
-  // Validation check
   const errors = validationResult(req);
   if (!errors.isEmpty()) {
     return res.status(400).json({ errors: errors.array() });
@@ -24,48 +23,37 @@ router.post("/register", [
   const { username, email, password } = req.body;
 
   // Check if user exists
-  const existingUser = await db("users")
-    .where({ email })
-    .orWhere({ username })
-    .first();
+  const existing = await db.execute({
+    sql: "SELECT id, email, username FROM users WHERE email = ? OR username = ?",
+    args: [email, username],
+  });
 
-  if (existingUser) {
-    return res.status(400).json({ 
-      error: existingUser.email === email 
-        ? "Email already registered" 
-        : "Username already taken" 
+  if (existing.rows.length > 0) {
+    const match = existing.rows[0];
+    return res.status(400).json({
+      error: match.email === email
+        ? "Email already registered"
+        : "Username already taken"
     });
   }
 
-  // Hash password
   const salt = await bcrypt.genSalt(10);
   const hashedPassword = await bcrypt.hash(password, salt);
 
-  // Insert user
-  const [newUser] = await db("users")
-    .insert({
-      username,
-      email,
-      password: hashedPassword,
-      role: "staff" // Default role
-    })
-    .returning(["id", "username", "email", "role"]);
+  const result = await db.execute({
+    sql: "INSERT INTO users (username, email, password, role) VALUES (?, ?, ?, ?) RETURNING id, username, email, role",
+    args: [username, email, hashedPassword, "staff"],
+  });
 
-  // Generate JWT token
+  const newUser = result.rows[0];
+
   const token = jwt.sign(
-    { 
-      id: newUser.id, 
-      username: newUser.username, 
-      role: newUser.role 
-    },
+    { id: newUser.id, username: newUser.username, role: newUser.role },
     process.env.JWT_SECRET,
     { expiresIn: process.env.JWT_EXPIRES_IN || "7d" }
   );
 
-  res.status(201).json({ 
-    token, 
-    user: newUser 
-  });
+  res.status(201).json({ token, user: newUser });
 }));
 
 // LOGIN
@@ -80,50 +68,41 @@ router.post("/login", [
 
   const { email, password } = req.body;
 
-  // Get user
-  const user = await db("users")
-    .where({ email })
-    .first();
+  const result = await db.execute({
+    sql: "SELECT * FROM users WHERE email = ?",
+    args: [email],
+  });
 
+  const user = result.rows[0];
   if (!user) {
     return res.status(401).json({ error: "Invalid credentials" });
   }
 
-  // Check password
   const validPassword = await bcrypt.compare(password, user.password);
   if (!validPassword) {
     return res.status(401).json({ error: "Invalid credentials" });
   }
 
-  // Generate token
   const token = jwt.sign(
-    { 
-      id: user.id, 
-      username: user.username, 
-      role: user.role 
-    },
+    { id: user.id, username: user.username, role: user.role },
     process.env.JWT_SECRET,
     { expiresIn: process.env.JWT_EXPIRES_IN || "7d" }
   );
 
   res.json({
     token,
-    user: {
-      id: user.id,
-      username: user.username,
-      email: user.email,
-      role: user.role
-    }
+    user: { id: user.id, username: user.username, email: user.email, role: user.role }
   });
 }));
 
 // GET current user
 router.get("/me", authenticateToken, asyncHandler(async (req, res) => {
-  const user = await db("users")
-    .where({ id: req.user.id })
-    .select("id", "username", "email", "role")
-    .first();
+  const result = await db.execute({
+    sql: "SELECT id, username, email, role FROM users WHERE id = ?",
+    args: [req.user.id],
+  });
 
+  const user = result.rows[0];
   if (!user) {
     return res.status(404).json({ error: "User not found" });
   }

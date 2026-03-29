@@ -1,8 +1,9 @@
 {
-  "dependencies": {
-    "@supabase/supabase-js": "^2.91.0",
-    "bcrypt": "^6.0.0",
-    "cors": "^2.8.5",
-    "jsonwebtoken": "^9.0.2"
+  "name": "inventory-sales-analytics-dashboard",
+  "private": true,
+  "scripts": {
+    "dev:backend": "cd backend && npm run dev",
+    "dev:frontend": "cd frontend && npm run dev",
+    "db:init": "cd backend && node db/init.js"
   }
 }

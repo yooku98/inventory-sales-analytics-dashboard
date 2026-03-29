@@ -1,52 +1,43 @@
-import { useEffect, useState } from "react";
+import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
+import { AuthProvider, useAuth } from "./context/AuthContext";
+import Layout from "./components/Layout";
+import Login from "./pages/Login";
+import Register from "./pages/Register";
+import Dashboard from "./pages/Dashboard";
+import Products from "./pages/Products";
+import Sales from "./pages/Sales";
+import Alerts from "./pages/Alerts";
+import UploadPage from "./pages/UploadPage";
 
-function App() {
-  const [products, setProducts] = useState([]);
-  const [loading, setLoading] = useState(true);
-
-  // Fetch products from backend
-  useEffect(() => {
-    fetch("http://localhost:5000/api/products")
-      .then((res) => res.json())
-      .then((data) => { setProducts(data); setLoading(false); })
-      .catch((err) => console.error("Error fetching products:", err));
-  }, []);
-
-  return (
-    <div style={{ padding: "20px", fontFamily: "Arial" }}>
-      <h1>Inventory & Sales Dashboard</h1>
-      <h2>Products</h2>
-      <table border="1" cellPadding="8">
-        <thead>
-          <tr>
-            <th>ID</th>
-            <th>Name</th>
-            <th>Category</th>
-            <th>Price</th>
-            <th>Stock</th>
-          </tr>
-        </thead>
-        <tbody>
-          {products.length > 0 ? (
-            products.map((p) => (
-              <tr key={p.id}>
-                <td>{p.id}</td>
-                <td>{p.name}</td>
-                <td>{p.category}</td>
-                <td>${p.price}</td>
-                <td>{p.stock}</td>
-              </tr>
-            ))
-          ) : (
-            <tr>
-              <td colSpan="5">Loading products...</td>
-            </tr>
-          )}
-        </tbody>
-      </table>
-    </div>
-  );
+function ProtectedRoute({ children }) {
+  const { user, loading } = useAuth();
+  if (loading) return <div className="min-h-screen flex items-center justify-center text-gray-500">Loading...</div>;
+  return user ? children : <Navigate to="/login" />;
 }
 
-export default App;
+function GuestRoute({ children }) {
+  const { user, loading } = useAuth();
+  if (loading) return <div className="min-h-screen flex items-center justify-center text-gray-500">Loading...</div>;
+  return user ? <Navigate to="/" /> : children;
+}
 
+export default function App() {
+  return (
+    <BrowserRouter>
+      <AuthProvider>
+        <Routes>
+          <Route path="/login" element={<GuestRoute><Login /></GuestRoute>} />
+          <Route path="/register" element={<GuestRoute><Register /></GuestRoute>} />
+          <Route element={<ProtectedRoute><Layout /></ProtectedRoute>}>
+            <Route index element={<Dashboard />} />
+            <Route path="products" element={<Products />} />
+            <Route path="sales" element={<Sales />} />
+            <Route path="alerts" element={<Alerts />} />
+            <Route path="upload" element={<UploadPage />} />
+          </Route>
+          <Route path="*" element={<Navigate to="/" />} />
+        </Routes>
+      </AuthProvider>
+    </BrowserRouter>
+  );
+}

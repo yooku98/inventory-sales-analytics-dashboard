@@ -8,6 +8,7 @@ import morgan from "morgan";
 import { errorHandler } from "./middleware/errorHandler.js";
 import authRoutes from "./routes/auth.js";
 import productRoutes from "./routes/products.js";
+import salesRoutes from "./routes/sales.js";
 import uploadRoutes from "./routes/upload.js";
 
 dotenv.config();
@@ -86,6 +87,7 @@ app.get('/health', (req, res) => {
 // API Routes
 app.use('/api/auth', authLimiter, authRoutes);
 app.use('/api/products', productRoutes);
+app.use('/api/sales', salesRoutes);
 app.use('/api/upload', uploadRoutes);
 
 // Root route
