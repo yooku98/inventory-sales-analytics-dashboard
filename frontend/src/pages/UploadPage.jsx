@@ -16,8 +16,8 @@ export default function UploadPage() {
     setLoading(true);
     try {
       const data = await uploadFile(file);
-      if (data.error || data.message === "Error parsing file") {
-        setError(data.message || data.error);
+      if (data.error) {
+        setError(data.error);
       } else {
         setResult(data);
       }
@@ -69,33 +69,30 @@ export default function UploadPage() {
 
         {result && (
           <div className="mt-6">
-            <div className="flex items-center gap-2 text-green-700 mb-4">
+            <div className="flex items-center gap-2 text-green-700 mb-2">
               <Check size={18} />
-              <span className="font-medium">{result.message} — {result.rows} rows processed</span>
+              <span className="font-medium">{result.message}</span>
             </div>
-            {result.data && result.data.length > 0 && (
-              <div className="overflow-x-auto border rounded-lg max-h-80 overflow-y-auto">
-                <table className="w-full text-sm">
-                  <thead className="bg-gray-50 sticky top-0">
-                    <tr>
-                      {Object.keys(result.data[0]).map((key) => (
-                        <th key={key} className="px-4 py-2 text-left font-medium text-gray-600">{key}</th>
-                      ))}
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {result.data.slice(0, 50).map((row, i) => (
-                      <tr key={i} className="border-t border-gray-100">
-                        {Object.values(row).map((val, j) => (
-                          <td key={j} className="px-4 py-2 text-gray-700">{String(val ?? "")}</td>
-                        ))}
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-                {result.data.length > 50 && (
-                  <p className="p-3 text-center text-gray-400 text-sm">Showing first 50 of {result.data.length} rows</p>
-                )}
+            <div className="grid grid-cols-3 gap-3 text-sm">
+              <div className="bg-gray-50 rounded-lg p-3 text-center">
+                <p className="text-gray-500">Total Rows</p>
+                <p className="text-xl font-bold text-gray-900">{result.rows}</p>
+              </div>
+              <div className="bg-green-50 rounded-lg p-3 text-center">
+                <p className="text-gray-500">Inserted</p>
+                <p className="text-xl font-bold text-green-700">{result.inserted}</p>
+              </div>
+              <div className="bg-red-50 rounded-lg p-3 text-center">
+                <p className="text-gray-500">Failed</p>
+                <p className="text-xl font-bold text-red-700">{result.failed}</p>
+              </div>
+            </div>
+            {result.errors && result.errors.length > 0 && (
+              <div className="mt-3 bg-yellow-50 border border-yellow-200 rounded-lg p-3 text-sm text-yellow-800">
+                <p className="font-medium mb-1">Errors:</p>
+                <ul className="list-disc list-inside space-y-0.5">
+                  {result.errors.map((e, i) => <li key={i}>{e}</li>)}
+                </ul>
               </div>
             )}
           </div>

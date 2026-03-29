@@ -4,7 +4,8 @@
       "Bash(npm install:*)",
       "Bash(npm uninstall:*)",
       "Bash(node db/init.js)",
-      "Bash(npx vite:*)"
+      "Bash(npx vite:*)",
+      "Bash(npm run:*)"
     ]
   }
 }

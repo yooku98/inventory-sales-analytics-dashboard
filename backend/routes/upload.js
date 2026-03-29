@@ -1,10 +1,9 @@
 import express from "express";
-import multer from "multer";
 import { upload, handleUpload } from "../controllers/uploadController.js";
+import { authenticateToken } from "../middleware/auth.js";
+
 const router = express.Router();
 
-
-router.post("/", upload, handleUpload);
+router.post("/", authenticateToken, upload, handleUpload);
 
 export default router;
-
