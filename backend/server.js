@@ -48,7 +48,7 @@ app.use(cors({
 const limiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
   max: 100, // Limit each IP to 100 requests per windowMs
-  message: 'Too many requests from this IP, please try again later.',
+  message: { error: 'Too many requests from this IP, please try again later.' },
   standardHeaders: true,
   legacyHeaders: false,
 });
@@ -59,8 +59,10 @@ app.use('/api/', limiter);
 // Stricter rate limit for auth routes
 const authLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
-  max: 5, // Only 5 requests per 15 minutes for auth
-  message: 'Too many login attempts, please try again later.'
+  max: 20,
+  message: { error: 'Too many login attempts, please try again later.' },
+  standardHeaders: true,
+  legacyHeaders: false,
 });
 
 // Body Parser Middleware with size limits
@@ -92,19 +94,10 @@ app.use('/api/upload', uploadRoutes);
 
 // Root route
 app.get('/', (req, res) => {
-  const registeredRoutes = [];
-  app._router.stack.forEach((layer) => {
-    if (layer.route) {
-      registeredRoutes.push(layer.route.path);
-    } else if (layer.name === 'router') {
-      registeredRoutes.push(layer.regexp.toString());
-    }
-  });
   res.json({
     message: 'Inventory & Sales Analytics API',
     version: '1.0.0',
-    status: 'running',
-    routes: registeredRoutes
+    status: 'running'
   });
 });
 
