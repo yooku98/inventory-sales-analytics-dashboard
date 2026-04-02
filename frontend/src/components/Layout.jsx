@@ -2,9 +2,10 @@ import { Link, NavLink, Outlet, useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import {
   LayoutDashboard, Package, ShoppingCart, AlertTriangle,
-  Upload, LogOut, Menu, X
+  Upload, LogOut, Menu, X, Download
 } from "lucide-react";
 import { useState } from "react";
+import { usePWAInstall } from "../hooks/usePWAInstall";
 
 const navItems = [
   { to: "/", icon: LayoutDashboard, label: "Dashboard" },
@@ -18,6 +19,7 @@ export default function Layout() {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const { canInstall, install } = usePWAInstall();
 
   const handleLogout = () => {
     logout();
@@ -64,8 +66,17 @@ export default function Layout() {
             </NavLink>
           ))}
         </nav>
-        <div className="p-4 border-t border-slate-700/50">
-          <div className="flex items-center gap-3 px-3 mb-3">
+        <div className="p-4 border-t border-slate-700/50 space-y-2">
+          {canInstall && (
+            <button
+              onClick={install}
+              className="flex items-center gap-3 px-3 py-2 w-full rounded-lg text-sm font-medium bg-indigo-500/20 text-indigo-300 hover:bg-indigo-500/30 transition-colors"
+            >
+              <Download size={18} />
+              Install App
+            </button>
+          )}
+          <div className="flex items-center gap-3 px-3 mb-1">
             <div className="w-8 h-8 rounded-full bg-indigo-500 flex items-center justify-center text-white text-sm font-bold">
               {user?.username?.[0]?.toUpperCase() || "U"}
             </div>
