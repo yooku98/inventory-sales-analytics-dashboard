@@ -92,10 +92,19 @@ app.use('/api/upload', uploadRoutes);
 
 // Root route
 app.get('/', (req, res) => {
-  res.json({ 
+  const registeredRoutes = [];
+  app._router.stack.forEach((layer) => {
+    if (layer.route) {
+      registeredRoutes.push(layer.route.path);
+    } else if (layer.name === 'router') {
+      registeredRoutes.push(layer.regexp.toString());
+    }
+  });
+  res.json({
     message: 'Inventory & Sales Analytics API',
     version: '1.0.0',
-    status: 'running'
+    status: 'running',
+    routes: registeredRoutes
   });
 });
 
