@@ -8,7 +8,8 @@
       "Bash(npm run:*)",
       "Bash(git rm:*)",
       "Bash(node -e \":*)",
-      "Bash(curl -s http://localhost:5000/health)"
+      "Bash(curl -s http://localhost:5000/health)",
+      "WebFetch(domain:inventory-sales-analytics-dashboard-production.up.railway.app)"
     ]
   }
 }

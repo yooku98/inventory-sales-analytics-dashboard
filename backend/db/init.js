@@ -1,6 +1,6 @@
 // backend/db/init.js
 import db from "./turso.js";
-import bcrypt from "bcrypt";
+import bcrypt from "bcryptjs";
 
 async function createTables() {
   try {
