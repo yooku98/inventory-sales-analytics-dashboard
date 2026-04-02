@@ -76,6 +76,7 @@ export default function Dashboard() {
   const [lowStock, setLowStock] = useState([]);
   const [categoryStats, setCategoryStats] = useState([]);
   const [loading, setLoading] = useState(true);
+  const navigate = useNavigate();
 
   useEffect(() => {
     Promise.all([getProducts(), getSalesStats(), getLowStock(), getCategoryStats()])
@@ -92,8 +93,6 @@ export default function Dashboard() {
   if (loading) {
     return <div className="flex items-center justify-center h-64 text-gray-500">Loading dashboard...</div>;
   }
-
-  const navigate = useNavigate();
 
   const totalStock = products.reduce((sum, p) => sum + (p.stock || 0), 0);
   const totalValue = products.reduce((sum, p) => sum + (p.price || 0) * (p.stock || 0), 0);
