@@ -19,9 +19,9 @@ function StatCard({ icon: Icon, label, value, color, onClick }) {
         <div className={`w-12 h-12 rounded-lg flex items-center justify-center ${color}`}>
           <Icon size={24} className="text-white" />
         </div>
-        <div className="flex-1">
+        <div className="flex-1 min-w-0">
           <p className="text-sm text-gray-500">{label}</p>
-          <p className="text-2xl font-bold text-gray-900">{value}</p>
+          <p className="text-2xl font-bold text-gray-900 truncate">{value}</p>
         </div>
         <ChevronRight size={20} className="text-gray-300 group-hover:text-gray-500 transition-colors" />
       </div>
