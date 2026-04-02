@@ -121,7 +121,7 @@ export default function Dashboard() {
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <StatCard icon={Package} label="Total Products" value={products.length} color="bg-blue-600" onClick={() => navigate("/products")} />
         <StatCard icon={TrendingUp} label="Total Stock" value={totalStock.toLocaleString()} color="bg-green-600" onClick={() => navigate("/products")} />
-        <StatCard icon={DollarSign} label="Inventory Value" value={`$${totalValue.toLocaleString(undefined, { minimumFractionDigits: 2 })}`} color="bg-purple-600" onClick={() => navigate("/sales")} />
+        <StatCard icon={DollarSign} label="Inventory Value" value={`GH₵${totalValue.toLocaleString(undefined, { minimumFractionDigits: 2 })}`} color="bg-purple-600" onClick={() => navigate("/sales")} />
         <StatCard icon={AlertTriangle} label="Low Stock Alerts" value={lowStock.length} color="bg-red-600" onClick={() => navigate("/alerts")} />
       </div>
 
@@ -136,7 +136,7 @@ export default function Dashboard() {
                   <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
                   <XAxis dataKey="date" tick={{ fontSize: 12 }} />
                   <YAxis tick={{ fontSize: 12 }} />
-                  <Tooltip formatter={(value) => `$${Number(value).toFixed(2)}`} />
+                  <Tooltip formatter={(value) => `GH₵${Number(value).toFixed(2)}`} />
                   <Line type="monotone" dataKey="revenue" stroke="#3b82f6" strokeWidth={2} dot={false} />
                 </LineChart>
               </ResponsiveContainer>
@@ -148,15 +148,15 @@ export default function Dashboard() {
                 <div className="grid grid-cols-3 gap-4 mb-6">
                   <div className="bg-blue-50 rounded-lg p-4 text-center">
                     <p className="text-sm text-gray-500">Total Revenue</p>
-                    <p className="text-2xl font-bold text-blue-700">${totalRevenue.toLocaleString(undefined, { minimumFractionDigits: 2 })}</p>
+                    <p className="text-2xl font-bold text-blue-700">GH₵{totalRevenue.toLocaleString(undefined, { minimumFractionDigits: 2 })}</p>
                   </div>
                   <div className="bg-green-50 rounded-lg p-4 text-center">
                     <p className="text-sm text-gray-500">Avg Daily Revenue</p>
-                    <p className="text-2xl font-bold text-green-700">${revenueData.length > 0 ? (totalRevenue / revenueData.length).toFixed(2) : "0"}</p>
+                    <p className="text-2xl font-bold text-green-700">GH₵{revenueData.length > 0 ? (totalRevenue / revenueData.length).toFixed(2) : "0"}</p>
                   </div>
                   <div className="bg-purple-50 rounded-lg p-4 text-center">
                     <p className="text-sm text-gray-500">Best Day</p>
-                    <p className="text-2xl font-bold text-purple-700">${Math.max(...revenueData.map(d => d.revenue)).toFixed(2)}</p>
+                    <p className="text-2xl font-bold text-purple-700">GH₵{Math.max(...revenueData.map(d => d.revenue)).toFixed(2)}</p>
                   </div>
                 </div>
                 <ResponsiveContainer width="100%" height={400}>
@@ -164,9 +164,9 @@ export default function Dashboard() {
                     <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
                     <XAxis dataKey="date" tick={{ fontSize: 12 }} />
                     <YAxis tick={{ fontSize: 12 }} />
-                    <Tooltip formatter={(value) => `$${Number(value).toFixed(2)}`} />
+                    <Tooltip formatter={(value) => `GH₵${Number(value).toFixed(2)}`} />
                     <Legend />
-                    <Line type="monotone" dataKey="revenue" stroke="#3b82f6" strokeWidth={2} name="Revenue ($)" />
+                    <Line type="monotone" dataKey="revenue" stroke="#3b82f6" strokeWidth={2} name="Revenue (GH₵)" />
                     <Line type="monotone" dataKey="sales" stroke="#10b981" strokeWidth={2} name="# Sales" />
                   </LineChart>
                 </ResponsiveContainer>
@@ -214,7 +214,7 @@ export default function Dashboard() {
                         <span className="mx-2 text-gray-300">|</span>
                         <span className="text-gray-600">{c.stock} stock</span>
                         <span className="mx-2 text-gray-300">|</span>
-                        <span className="text-gray-600">avg ${c.avg_price.toFixed(2)}</span>
+                        <span className="text-gray-600">avg GH₵{c.avg_price.toFixed(2)}</span>
                       </div>
                     </div>
                   ))}
@@ -264,7 +264,7 @@ export default function Dashboard() {
                     <Tooltip />
                     <Legend />
                     <Bar dataKey="sales" fill="#10b981" radius={[4, 4, 0, 0]} name="Sales Count" />
-                    <Bar dataKey="revenue" fill="#3b82f6" radius={[4, 4, 0, 0]} name="Revenue ($)" />
+                    <Bar dataKey="revenue" fill="#3b82f6" radius={[4, 4, 0, 0]} name="Revenue (GH₵)" />
                   </BarChart>
                 </ResponsiveContainer>
               </>

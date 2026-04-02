@@ -1,6 +1,6 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useMemo } from "react";
 import { getSales, createSale, getProducts } from "../lib/api";
-import { Plus, X } from "lucide-react";
+import { Plus, X, Filter, Search } from "lucide-react";
 
 function SaleModal({ onClose, onSave }) {
   const [products, setProducts] = useState([]);
@@ -83,6 +83,9 @@ function SaleModal({ onClose, onSave }) {
                 <option value="cash">Cash</option>
                 <option value="card">Card</option>
                 <option value="transfer">Transfer</option>
+                <option value="Mobile Money (MTN)">Mobile Money (MTN)</option>
+                <option value="Mobile Money (Telecel)">Mobile Money (Telecel)</option>
+                <option value="Mobile Money (AT)">Mobile Money (AT)</option>
                 <option value="other">Other</option>
               </select>
             </div>
@@ -94,7 +97,7 @@ function SaleModal({ onClose, onSave }) {
           </div>
           {form.quantity_sold && form.sale_price && (
             <div className="bg-blue-50 p-3 rounded-lg text-sm text-blue-800">
-              Total: <strong>${(Number(form.quantity_sold) * Number(form.sale_price)).toFixed(2)}</strong>
+              Total: <strong>GH₵{(Number(form.quantity_sold) * Number(form.sale_price)).toFixed(2)}</strong>
             </div>
           )}
           <div className="flex justify-end gap-3 pt-2">
@@ -113,6 +116,12 @@ export default function Sales() {
   const [sales, setSales] = useState([]);
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
+  const [search, setSearch] = useState("");
+  const [paymentFilter, setPaymentFilter] = useState("");
+  const [productFilter, setProductFilter] = useState("");
+  const [dateFrom, setDateFrom] = useState("");
+  const [dateTo, setDateTo] = useState("");
+  const [sortBy, setSortBy] = useState("date_desc");
 
   const load = () => {
     setLoading(true);
@@ -121,13 +130,125 @@ export default function Sales() {
 
   useEffect(load, []);
 
+  // Unique values for filter dropdowns
+  const paymentMethods = useMemo(() => [...new Set(sales.map(s => s.payment_method).filter(Boolean))].sort(), [sales]);
+  const productNames = useMemo(() => [...new Set(sales.map(s => s.product_name).filter(Boolean))].sort(), [sales]);
+
+  // Filtered and sorted sales
+  const filtered = useMemo(() => {
+    let result = sales;
+
+    if (search) {
+      const q = search.toLowerCase();
+      result = result.filter(s =>
+        s.product_name?.toLowerCase().includes(q) ||
+        s.customer_name?.toLowerCase().includes(q)
+      );
+    }
+    if (paymentFilter) {
+      result = result.filter(s => s.payment_method === paymentFilter);
+    }
+    if (productFilter) {
+      result = result.filter(s => s.product_name === productFilter);
+    }
+    if (dateFrom) {
+      result = result.filter(s => (s.sale_date?.split("T")[0] || "") >= dateFrom);
+    }
+    if (dateTo) {
+      result = result.filter(s => (s.sale_date?.split("T")[0] || "") <= dateTo);
+    }
+
+    // Sort
+    result = [...result].sort((a, b) => {
+      switch (sortBy) {
+        case "date_asc": return (a.sale_date || "").localeCompare(b.sale_date || "");
+        case "date_desc": return (b.sale_date || "").localeCompare(a.sale_date || "");
+        case "total_asc": return (Number(a.total_amount) || 0) - (Number(b.total_amount) || 0);
+        case "total_desc": return (Number(b.total_amount) || 0) - (Number(a.total_amount) || 0);
+        case "qty_desc": return (b.quantity_sold || 0) - (a.quantity_sold || 0);
+        case "product": return (a.product_name || "").localeCompare(b.product_name || "");
+        default: return 0;
+      }
+    });
+
+    return result;
+  }, [sales, search, paymentFilter, productFilter, dateFrom, dateTo, sortBy]);
+
+  const totalRevenue = filtered.reduce((sum, s) => sum + (Number(s.total_amount) || 0), 0);
+  const hasFilters = search || paymentFilter || productFilter || dateFrom || dateTo;
+
+  const clearFilters = () => {
+    setSearch("");
+    setPaymentFilter("");
+    setProductFilter("");
+    setDateFrom("");
+    setDateTo("");
+    setSortBy("date_desc");
+  };
+
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <h2 className="text-2xl font-bold text-gray-900">Sales</h2>
         <button onClick={() => setShowModal(true)} className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700">
           <Plus size={16} /> Record Sale
         </button>
+      </div>
+
+      {/* Filters */}
+      <div className="bg-white rounded-xl border border-gray-200 p-4">
+        <div className="flex items-center gap-2 mb-3">
+          <Filter size={16} className="text-gray-500" />
+          <span className="text-sm font-medium text-gray-700">Filters</span>
+          {hasFilters && (
+            <button onClick={clearFilters} className="ml-auto text-xs text-blue-600 hover:underline">Clear all</button>
+          )}
+        </div>
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
+          <div className="relative col-span-2 sm:col-span-1">
+            <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+            <input
+              placeholder="Search..."
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              className="w-full pl-8 pr-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 outline-none"
+            />
+          </div>
+          <select value={paymentFilter} onChange={(e) => setPaymentFilter(e.target.value)}
+            className="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 outline-none">
+            <option value="">All Payments</option>
+            {paymentMethods.map(m => <option key={m} value={m}>{m}</option>)}
+          </select>
+          <select value={productFilter} onChange={(e) => setProductFilter(e.target.value)}
+            className="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 outline-none">
+            <option value="">All Products</option>
+            {productNames.map(n => <option key={n} value={n}>{n}</option>)}
+          </select>
+          <input type="date" value={dateFrom} onChange={(e) => setDateFrom(e.target.value)} placeholder="From"
+            className="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 outline-none" />
+          <input type="date" value={dateTo} onChange={(e) => setDateTo(e.target.value)} placeholder="To"
+            className="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 outline-none" />
+          <select value={sortBy} onChange={(e) => setSortBy(e.target.value)}
+            className="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 outline-none">
+            <option value="date_desc">Newest First</option>
+            <option value="date_asc">Oldest First</option>
+            <option value="total_desc">Highest Total</option>
+            <option value="total_asc">Lowest Total</option>
+            <option value="qty_desc">Most Quantity</option>
+            <option value="product">Product A-Z</option>
+          </select>
+        </div>
+      </div>
+
+      {/* Summary bar */}
+      <div className="flex flex-wrap items-center gap-4 text-sm">
+        <span className="text-gray-500">
+          Showing <strong className="text-gray-900">{filtered.length}</strong> of {sales.length} sales
+        </span>
+        <span className="text-gray-300">|</span>
+        <span className="text-gray-500">
+          Total: <strong className="text-gray-900">GH₵{totalRevenue.toLocaleString(undefined, { minimumFractionDigits: 2 })}</strong>
+        </span>
       </div>
 
       {loading ? (
@@ -148,20 +269,22 @@ export default function Sales() {
                 </tr>
               </thead>
               <tbody>
-                {sales.length === 0 ? (
-                  <tr><td colSpan={7} className="px-6 py-8 text-center text-gray-400">No sales recorded yet</td></tr>
+                {filtered.length === 0 ? (
+                  <tr><td colSpan={7} className="px-6 py-8 text-center text-gray-400">
+                    {hasFilters ? "No sales match your filters" : "No sales recorded yet"}
+                  </td></tr>
                 ) : (
-                  sales.map((s) => (
+                  filtered.map((s) => (
                     <tr key={s.id} className="border-t border-gray-100 hover:bg-gray-50">
                       <td className="px-6 py-3 text-gray-500">{s.sale_date?.split("T")[0]}</td>
                       <td className="px-6 py-3 font-medium text-gray-900">{s.product_name}</td>
                       <td className="px-6 py-3">{s.quantity_sold}</td>
-                      <td className="px-6 py-3">${Number(s.sale_price).toFixed(2)}</td>
-                      <td className="px-6 py-3 font-medium">${Number(s.total_amount).toFixed(2)}</td>
+                      <td className="px-6 py-3">GH₵{Number(s.sale_price).toFixed(2)}</td>
+                      <td className="px-6 py-3 font-medium">GH₵{Number(s.total_amount).toFixed(2)}</td>
                       <td className="px-6 py-3 text-gray-500">{s.customer_name || "-"}</td>
                       <td className="px-6 py-3">
                         {s.payment_method && (
-                          <span className="px-2 py-0.5 bg-gray-100 text-gray-600 rounded-full text-xs font-medium capitalize">{s.payment_method}</span>
+                          <span className="px-2 py-0.5 bg-gray-100 text-gray-600 rounded-full text-xs font-medium">{s.payment_method}</span>
                         )}
                       </td>
                     </tr>
