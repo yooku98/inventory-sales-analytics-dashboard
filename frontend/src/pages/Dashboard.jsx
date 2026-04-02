@@ -119,10 +119,10 @@ export default function Dashboard() {
 
       {/* Stats */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        <StatCard icon={Package} label="Total Products" value={products.length} color="bg-blue-600" onClick={() => navigate("/products")} />
-        <StatCard icon={TrendingUp} label="Total Stock" value={totalStock.toLocaleString()} color="bg-green-600" onClick={() => navigate("/products")} />
-        <StatCard icon={DollarSign} label="Inventory Value" value={`GH₵${totalValue.toLocaleString(undefined, { minimumFractionDigits: 2 })}`} color="bg-purple-600" onClick={() => navigate("/sales")} />
-        <StatCard icon={AlertTriangle} label="Low Stock Alerts" value={lowStock.length} color="bg-red-600" onClick={() => navigate("/alerts")} />
+        <StatCard icon={Package} label="Total Products" value={products.length} color="bg-indigo-500" onClick={() => navigate("/products")} />
+        <StatCard icon={TrendingUp} label="Total Stock" value={totalStock.toLocaleString()} color="bg-emerald-500" onClick={() => navigate("/products")} />
+        <StatCard icon={DollarSign} label="Inventory Value" value={`GH₵${totalValue.toLocaleString(undefined, { minimumFractionDigits: 2 })}`} color="bg-violet-500" onClick={() => navigate("/sales")} />
+        <StatCard icon={AlertTriangle} label="Low Stock Alerts" value={lowStock.length} color="bg-rose-500" onClick={() => navigate("/alerts")} />
       </div>
 
       {/* Charts */}

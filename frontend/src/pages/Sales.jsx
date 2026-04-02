@@ -1,6 +1,7 @@
 import { useEffect, useState, useMemo } from "react";
 import { getSales, createSale, getProducts } from "../lib/api";
-import { Plus, X, Filter, Search } from "lucide-react";
+import { Plus, X, Filter, Search, FileDown, FileSpreadsheet } from "lucide-react";
+import { exportToExcel, exportToPDF } from "../lib/export";
 
 function SaleModal({ onClose, onSave }) {
   const [products, setProducts] = useState([]);
@@ -186,13 +187,33 @@ export default function Sales() {
     setSortBy("date_desc");
   };
 
+  const salesColumns = [
+    { key: "sale_date", label: "Date", format: (v) => v?.split("T")[0] || "" },
+    { key: "product_name", label: "Product" },
+    { key: "quantity_sold", label: "Qty" },
+    { key: "sale_price", label: "Price (GH₵)", format: (v) => Number(v).toFixed(2) },
+    { key: "total_amount", label: "Total (GH₵)", format: (v) => Number(v).toFixed(2) },
+    { key: "customer_name", label: "Customer" },
+    { key: "payment_method", label: "Payment" },
+  ];
+
   return (
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <h2 className="text-2xl font-bold text-gray-900">Sales</h2>
-        <button onClick={() => setShowModal(true)} className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700">
-          <Plus size={16} /> Record Sale
-        </button>
+        <div className="flex flex-wrap gap-2">
+          <button onClick={() => exportToExcel(filtered, salesColumns, "sales")}
+            className="flex items-center gap-1.5 px-3 py-2 bg-emerald-50 text-emerald-700 text-sm font-medium rounded-lg hover:bg-emerald-100 border border-emerald-200">
+            <FileSpreadsheet size={15} /> Excel
+          </button>
+          <button onClick={() => exportToPDF(filtered, salesColumns, "sales", "Sales Report")}
+            className="flex items-center gap-1.5 px-3 py-2 bg-rose-50 text-rose-700 text-sm font-medium rounded-lg hover:bg-rose-100 border border-rose-200">
+            <FileDown size={15} /> PDF
+          </button>
+          <button onClick={() => setShowModal(true)} className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700">
+            <Plus size={16} /> Record Sale
+          </button>
+        </div>
       </div>
 
       {/* Filters */}

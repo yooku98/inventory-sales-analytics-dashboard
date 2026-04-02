@@ -1,6 +1,7 @@
 import { useEffect, useState, useMemo } from "react";
 import { getProducts, createProduct, updateProduct, deleteProduct } from "../lib/api";
-import { Plus, Pencil, Trash2, X } from "lucide-react";
+import { Plus, Pencil, Trash2, X, FileDown, FileSpreadsheet } from "lucide-react";
+import { exportToExcel, exportToPDF } from "../lib/export";
 
 const emptyForm = { name: "", sku: "", category: "", description: "", price: "", stock: "", reorder_level: "10", supplier: "" };
 
@@ -130,18 +131,36 @@ export default function Products() {
     return matchesSearch && matchesCategory;
   });
 
+  const productColumns = [
+    { key: "name", label: "Name" },
+    { key: "sku", label: "SKU" },
+    { key: "category", label: "Category" },
+    { key: "price", label: "Price (GH₵)", format: (v) => Number(v).toFixed(2) },
+    { key: "stock", label: "Stock" },
+    { key: "reorder_level", label: "Reorder Level" },
+    { key: "supplier", label: "Supplier" },
+  ];
+
   return (
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <h2 className="text-2xl font-bold text-gray-900">Products</h2>
-        <div className="flex gap-3">
+        <h2 className="text-2xl font-bold text-slate-900">Products</h2>
+        <div className="flex flex-wrap gap-2">
           <input
             placeholder="Search products..."
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            className="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 outline-none"
+            className="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 outline-none"
           />
-          <button onClick={() => setModal("add")} className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700">
+          <button onClick={() => exportToExcel(filtered, productColumns, "products")}
+            className="flex items-center gap-1.5 px-3 py-2 bg-emerald-50 text-emerald-700 text-sm font-medium rounded-lg hover:bg-emerald-100 border border-emerald-200">
+            <FileSpreadsheet size={15} /> Excel
+          </button>
+          <button onClick={() => exportToPDF(filtered, productColumns, "products", "Products Report")}
+            className="flex items-center gap-1.5 px-3 py-2 bg-rose-50 text-rose-700 text-sm font-medium rounded-lg hover:bg-rose-100 border border-rose-200">
+            <FileDown size={15} /> PDF
+          </button>
+          <button onClick={() => setModal("add")} className="flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white text-sm font-medium rounded-lg hover:bg-indigo-700">
             <Plus size={16} /> Add Product
           </button>
         </div>
