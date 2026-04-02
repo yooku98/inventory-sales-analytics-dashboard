@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useMemo } from "react";
 import { getProducts, createProduct, updateProduct, deleteProduct } from "../lib/api";
 import { Plus, Pencil, Trash2, X } from "lucide-react";
 
@@ -98,8 +98,9 @@ function ProductModal({ product, onClose, onSave }) {
 export default function Products() {
   const [products, setProducts] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [modal, setModal] = useState(null); // null | "add" | product object
+  const [modal, setModal] = useState(null);
   const [search, setSearch] = useState("");
+  const [categoryFilter, setCategoryFilter] = useState("");
 
   const load = () => {
     setLoading(true);
@@ -107,6 +108,8 @@ export default function Products() {
   };
 
   useEffect(load, []);
+
+  const categories = useMemo(() => [...new Set(products.map(p => p.category).filter(Boolean))].sort(), [products]);
 
   const handleDelete = async (id, name) => {
     if (!confirm(`Delete "${name}"?`)) return;
@@ -118,11 +121,14 @@ export default function Products() {
     }
   };
 
-  const filtered = products.filter((p) =>
-    p.name?.toLowerCase().includes(search.toLowerCase()) ||
-    p.category?.toLowerCase().includes(search.toLowerCase()) ||
-    p.sku?.toLowerCase().includes(search.toLowerCase())
-  );
+  const filtered = products.filter((p) => {
+    const matchesSearch = !search ||
+      p.name?.toLowerCase().includes(search.toLowerCase()) ||
+      p.category?.toLowerCase().includes(search.toLowerCase()) ||
+      p.sku?.toLowerCase().includes(search.toLowerCase());
+    const matchesCategory = !categoryFilter || p.category === categoryFilter;
+    return matchesSearch && matchesCategory;
+  });
 
   return (
     <div className="space-y-6">
@@ -139,6 +145,32 @@ export default function Products() {
             <Plus size={16} /> Add Product
           </button>
         </div>
+      </div>
+
+      {/* Category tabs */}
+      <div className="flex flex-wrap gap-2">
+        <button
+          onClick={() => setCategoryFilter("")}
+          className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
+            !categoryFilter ? "bg-blue-600 text-white" : "bg-gray-100 text-gray-600 hover:bg-gray-200"
+          }`}
+        >
+          All ({products.length})
+        </button>
+        {categories.map((cat) => {
+          const count = products.filter(p => p.category === cat).length;
+          return (
+            <button
+              key={cat}
+              onClick={() => setCategoryFilter(categoryFilter === cat ? "" : cat)}
+              className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
+                categoryFilter === cat ? "bg-blue-600 text-white" : "bg-gray-100 text-gray-600 hover:bg-gray-200"
+              }`}
+            >
+              {cat} ({count})
+            </button>
+          );
+        })}
       </div>
 
       {loading ? (
