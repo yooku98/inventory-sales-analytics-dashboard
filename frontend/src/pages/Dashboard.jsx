@@ -21,7 +21,7 @@ function StatCard({ icon: Icon, label, value, color, onClick }) {
         </div>
         <div className="flex-1 min-w-0">
           <p className="text-sm text-gray-500">{label}</p>
-          <p className="text-2xl font-bold text-gray-900 truncate">{value}</p>
+          <p className={`font-bold text-gray-900 ${String(value).length > 12 ? "text-lg" : "text-2xl"}`}>{value}</p>
         </div>
         <ChevronRight size={20} className="text-gray-300 group-hover:text-gray-500 transition-colors" />
       </div>
