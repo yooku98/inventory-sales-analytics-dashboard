@@ -173,6 +173,28 @@ export default function Products() {
         })}
       </div>
 
+      {/* Category summary */}
+      {!loading && (
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
+          {(categoryFilter ? categories.filter(c => c === categoryFilter) : categories).map((cat) => {
+            const catProducts = products.filter(p => p.category === cat);
+            const totalStock = catProducts.reduce((s, p) => s + (p.stock || 0), 0);
+            const totalValue = catProducts.reduce((s, p) => s + (p.price || 0) * (p.stock || 0), 0);
+            return (
+              <div key={cat} onClick={() => setCategoryFilter(categoryFilter === cat ? "" : cat)}
+                className={`bg-white rounded-xl border p-4 cursor-pointer transition-all hover:shadow-md ${categoryFilter === cat ? "border-blue-300 ring-1 ring-blue-200" : "border-gray-200"}`}>
+                <p className="text-sm font-medium text-gray-900">{cat}</p>
+                <div className="mt-2 space-y-1 text-xs text-gray-500">
+                  <div className="flex justify-between"><span>Products</span><span className="font-medium text-gray-900">{catProducts.length}</span></div>
+                  <div className="flex justify-between"><span>Total Stock</span><span className="font-medium text-gray-900">{totalStock.toLocaleString()}</span></div>
+                  <div className="flex justify-between"><span>Value</span><span className="font-medium text-gray-900">GH₵{totalValue.toLocaleString(undefined, { minimumFractionDigits: 2 })}</span></div>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+
       {loading ? (
         <p className="text-gray-500">Loading...</p>
       ) : (
