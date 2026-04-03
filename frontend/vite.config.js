@@ -9,7 +9,7 @@ export default defineConfig({
     tailwindcss(),
     VitePWA({
       registerType: 'autoUpdate',
-      includeAssets: ['icon-192.svg', 'icon-512.svg'],
+      includeAssets: ['icon-192.svg', 'icon-512.svg', 'apple-touch-icon.png'],
       manifest: {
         name: 'InvenTrack - Inventory & Sales Dashboard',
         short_name: 'InvenTrack',
@@ -30,6 +30,12 @@ export default defineConfig({
             sizes: '512x512',
             type: 'image/svg+xml',
             purpose: 'any maskable',
+          },
+          {
+            src: 'apple-touch-icon.png',
+            sizes: '180x180',
+            type: 'image/png',
+            purpose: 'apple touch icon',
           },
         ],
       },
