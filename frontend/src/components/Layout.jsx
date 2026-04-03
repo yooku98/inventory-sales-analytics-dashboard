@@ -28,13 +28,16 @@ export default function Layout() {
 
   return (
     <div className="min-h-screen bg-slate-50 flex">
+      {/* Safe area background for iOS status bar */}
+      <div className="fixed top-0 left-0 right-0 z-50 bg-slate-900 lg:bg-white" style={{ height: 'env(safe-area-inset-top)' }} />
+
       {/* Mobile overlay */}
       {sidebarOpen && (
         <div className="fixed inset-0 bg-black/50 z-30 lg:hidden" onClick={() => setSidebarOpen(false)} />
       )}
 
       {/* Sidebar */}
-      <aside className={`fixed lg:static inset-y-0 left-0 z-40 w-64 bg-slate-900 flex flex-col transform transition-transform lg:translate-x-0 ${sidebarOpen ? "translate-x-0" : "-translate-x-full"}`}>
+      <aside className={`fixed lg:static inset-y-0 left-0 z-40 w-64 bg-slate-900 flex flex-col transform transition-transform lg:translate-x-0 ${sidebarOpen ? "translate-x-0" : "-translate-x-full"}`} style={{ paddingTop: 'env(safe-area-inset-top)' }}>
         <div className="h-16 flex items-center px-6 border-b border-slate-700/50">
           <Link to="/" className="text-lg font-bold text-white flex items-center gap-2">
             <div className="w-8 h-8 bg-indigo-500 rounded-lg flex items-center justify-center">
@@ -97,7 +100,7 @@ export default function Layout() {
 
       {/* Main content */}
       <div className="flex-1 flex flex-col min-w-0">
-        <header className="h-16 bg-white border-b border-slate-200 flex items-center px-4 lg:px-8 shadow-sm">
+        <header className="h-16 bg-white border-b border-slate-200 flex items-center px-4 lg:px-8 shadow-sm" style={{ marginTop: 'env(safe-area-inset-top)' }}>
           <button className="lg:hidden mr-4 text-slate-600" onClick={() => setSidebarOpen(true)}>
             <Menu size={20} />
           </button>
