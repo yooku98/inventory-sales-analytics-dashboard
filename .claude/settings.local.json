@@ -9,7 +9,11 @@
       "Bash(git rm:*)",
       "Bash(node -e \":*)",
       "Bash(curl -s http://localhost:5000/health)",
-      "WebFetch(domain:inventory-sales-analytics-dashboard-production.up.railway.app)"
+      "WebFetch(domain:inventory-sales-analytics-dashboard-production.up.railway.app)",
+      "Bash(node -e ':*)",
+      "Bash(npm ls:*)",
+      "Bash(npx --yes svg2png-cli --help)",
+      "Bash(npx --yes sharp-cli -i frontend/public/icon-192.svg -o frontend/public/apple-touch-icon.png resize 180 180)"
     ]
   }
 }
