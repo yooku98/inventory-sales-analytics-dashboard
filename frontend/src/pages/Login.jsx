@@ -2,6 +2,7 @@ import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import { login } from "../lib/api";
+import { Pill } from "lucide-react";
 
 export default function Login() {
   const [email, setEmail] = useState("");
@@ -31,9 +32,9 @@ export default function Login() {
       <div className="w-full max-w-md">
         <div className="text-center mb-8">
           <div className="w-14 h-14 bg-indigo-500 rounded-2xl flex items-center justify-center mx-auto mb-4">
-            <span className="text-white text-2xl font-bold">I</span>
+            <Pill size={28} className="text-white" />
           </div>
-          <h1 className="text-3xl font-bold text-white">InvenTrack</h1>
+          <h1 className="text-3xl font-bold text-white">PharmaTrack</h1>
           <p className="text-slate-400 mt-2">Sign in to your account</p>
         </div>
         <form onSubmit={handleSubmit} className="bg-white rounded-2xl shadow-xl p-8 space-y-5">

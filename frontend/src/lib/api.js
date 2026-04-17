@@ -35,6 +35,7 @@ export const updateProduct = (id, data) =>
 export const deleteProduct = (id) =>
   request(`/products/${id}`, { method: "DELETE" });
 export const getLowStock = () => request("/products/alerts/low-stock");
+export const getExpiring = (days = 90) => request(`/products/alerts/expiring?days=${days}`);
 export const getCategoryStats = () => request("/products/stats/by-category");
 
 // Sales

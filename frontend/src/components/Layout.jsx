@@ -2,7 +2,7 @@ import { Link, NavLink, Outlet, useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import {
   LayoutDashboard, Package, ShoppingCart, AlertTriangle,
-  Upload, LogOut, Menu, X, Download
+  Upload, LogOut, Menu, X, Download, Pill
 } from "lucide-react";
 import { useState } from "react";
 import { usePWAInstall } from "../hooks/usePWAInstall";
@@ -41,9 +41,9 @@ export default function Layout() {
         <div className="h-16 flex items-center px-6 border-b border-slate-700/50">
           <Link to="/" className="text-lg font-bold text-white flex items-center gap-2">
             <div className="w-8 h-8 bg-indigo-500 rounded-lg flex items-center justify-center">
-              <Package size={18} className="text-white" />
+              <Pill size={18} className="text-white" />
             </div>
-            InvenTrack
+            PharmaTrack
           </Link>
           <button className="ml-auto lg:hidden text-slate-400" onClick={() => setSidebarOpen(false)}>
             <X size={20} />
@@ -104,7 +104,7 @@ export default function Layout() {
           <button className="lg:hidden mr-4 text-slate-600" onClick={() => setSidebarOpen(true)}>
             <Menu size={20} />
           </button>
-          <h1 className="text-lg font-semibold text-slate-800">Inventory & Sales Dashboard</h1>
+          <h1 className="text-lg font-semibold text-slate-800">Pharmacy Inventory</h1>
         </header>
         <main className="flex-1 p-4 lg:p-8 overflow-auto">
           <Outlet />

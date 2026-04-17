@@ -14,6 +14,19 @@ router.get("/alerts/low-stock", authenticateToken, asyncHandler(async (req, res)
   res.json(result.rows);
 }));
 
+// GET expiring / expired products (must be before /:id)
+router.get("/alerts/expiring", authenticateToken, asyncHandler(async (req, res) => {
+  const days = parseInt(req.query.days) || 90;
+  const result = await db.execute({
+    sql: `SELECT * FROM products
+          WHERE expiry_date IS NOT NULL
+            AND date(expiry_date) <= date('now', '+' || ? || ' days')
+          ORDER BY date(expiry_date) ASC`,
+    args: [days],
+  });
+  res.json(result.rows);
+}));
+
 // GET products by category with stats (must be before /:id)
 router.get("/stats/by-category", authenticateToken, asyncHandler(async (req, res) => {
   const result = await db.execute(
@@ -47,16 +60,34 @@ router.get("/:id", authenticateToken, asyncHandler(async (req, res) => {
 
 // CREATE new product
 router.post("/", authenticateToken, asyncHandler(async (req, res) => {
-  const { name, sku, category, description, price, stock, reorder_level, supplier } = req.body;
+  const {
+    name, sku, category, description, price, stock, reorder_level, supplier,
+    expiry_date, batch_number, lot_number, is_controlled,
+  } = req.body;
 
   if (!name || price === undefined) {
     return res.status(400).json({ error: "Name and price are required" });
   }
 
   const result = await db.execute({
-    sql: `INSERT INTO products (name, sku, category, description, price, stock, reorder_level, supplier)
-          VALUES (?, ?, ?, ?, ?, ?, ?, ?) RETURNING *`,
-    args: [name, sku || null, category || null, description || null, price, stock || 0, reorder_level || 10, supplier || null],
+    sql: `INSERT INTO products
+            (name, sku, category, description, price, stock, reorder_level, supplier,
+             expiry_date, batch_number, lot_number, is_controlled)
+          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) RETURNING *`,
+    args: [
+      name,
+      sku || null,
+      category || null,
+      description || null,
+      price,
+      stock || 0,
+      reorder_level || 10,
+      supplier || null,
+      expiry_date || null,
+      batch_number || null,
+      lot_number || null,
+      is_controlled ? 1 : 0,
+    ],
   });
 
   res.status(201).json(result.rows[0]);
@@ -65,7 +96,10 @@ router.post("/", authenticateToken, asyncHandler(async (req, res) => {
 // UPDATE product
 router.put("/:id", authenticateToken, asyncHandler(async (req, res) => {
   const { id } = req.params;
-  const { name, sku, category, description, price, stock, reorder_level, supplier } = req.body;
+  const {
+    name, sku, category, description, price, stock, reorder_level, supplier,
+    expiry_date, batch_number, lot_number, is_controlled,
+  } = req.body;
 
   const result = await db.execute({
     sql: `UPDATE products SET
@@ -77,9 +111,18 @@ router.put("/:id", authenticateToken, asyncHandler(async (req, res) => {
             stock = COALESCE(?, stock),
             reorder_level = COALESCE(?, reorder_level),
             supplier = COALESCE(?, supplier),
+            expiry_date = COALESCE(?, expiry_date),
+            batch_number = COALESCE(?, batch_number),
+            lot_number = COALESCE(?, lot_number),
+            is_controlled = COALESCE(?, is_controlled),
             updated_at = datetime('now')
           WHERE id = ? RETURNING *`,
-    args: [name, sku, category, description, price, stock, reorder_level, supplier, id],
+    args: [
+      name, sku, category, description, price, stock, reorder_level, supplier,
+      expiry_date, batch_number, lot_number,
+      is_controlled === undefined ? null : (is_controlled ? 1 : 0),
+      id,
+    ],
   });
 
   if (result.rows.length === 0) {

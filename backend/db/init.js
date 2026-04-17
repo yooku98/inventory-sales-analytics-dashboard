@@ -2,6 +2,15 @@
 import db from "./turso.js";
 import bcrypt from "bcryptjs";
 
+async function addColumnIfMissing(table, column, definition) {
+  const info = await db.execute(`PRAGMA table_info(${table})`);
+  const exists = info.rows.some((r) => r.name === column);
+  if (!exists) {
+    await db.execute(`ALTER TABLE ${table} ADD COLUMN ${column} ${definition}`);
+    console.log(`  + added ${table}.${column}`);
+  }
+}
+
 async function createTables() {
   try {
     console.log("Starting database initialization...");
@@ -30,11 +39,21 @@ async function createTables() {
         stock INTEGER NOT NULL DEFAULT 0,
         reorder_level INTEGER DEFAULT 10,
         supplier TEXT,
+        expiry_date TEXT,
+        batch_number TEXT,
+        lot_number TEXT,
+        is_controlled INTEGER DEFAULT 0,
         created_at TEXT DEFAULT (datetime('now')),
         updated_at TEXT DEFAULT (datetime('now'))
       )
     `);
     console.log("Products table ready");
+
+    // Pharmacy column migrations for existing databases
+    await addColumnIfMissing("products", "expiry_date", "TEXT");
+    await addColumnIfMissing("products", "batch_number", "TEXT");
+    await addColumnIfMissing("products", "lot_number", "TEXT");
+    await addColumnIfMissing("products", "is_controlled", "INTEGER DEFAULT 0");
 
     await db.execute(`
       CREATE TABLE IF NOT EXISTS sales (
@@ -74,12 +93,12 @@ async function createTables() {
     `);
     console.log("Upload history table ready");
 
-    // Create indexes
     await db.execute("CREATE INDEX IF NOT EXISTS idx_users_email ON users(email)");
     await db.execute("CREATE INDEX IF NOT EXISTS idx_users_username ON users(username)");
     await db.execute("CREATE INDEX IF NOT EXISTS idx_products_category ON products(category)");
     await db.execute("CREATE INDEX IF NOT EXISTS idx_products_stock ON products(stock)");
     await db.execute("CREATE INDEX IF NOT EXISTS idx_products_sku ON products(sku)");
+    await db.execute("CREATE INDEX IF NOT EXISTS idx_products_expiry ON products(expiry_date)");
     await db.execute("CREATE INDEX IF NOT EXISTS idx_sales_product_id ON sales(product_id)");
     await db.execute("CREATE INDEX IF NOT EXISTS idx_sales_sale_date ON sales(sale_date)");
     await db.execute("CREATE INDEX IF NOT EXISTS idx_sales_created_at ON sales(created_at)");
@@ -87,7 +106,6 @@ async function createTables() {
 
     console.log("All tables and indexes created successfully");
 
-    // Insert default admin user if users table is empty
     const result = await db.execute("SELECT COUNT(*) as count FROM users");
     if (result.rows[0].count === 0) {
       const hashedPassword = await bcrypt.hash("admin123", 10);

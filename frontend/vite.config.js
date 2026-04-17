@@ -11,9 +11,9 @@ export default defineConfig({
       registerType: 'autoUpdate',
       includeAssets: ['icon-192.svg', 'icon-512.svg', 'apple-touch-icon.png'],
       manifest: {
-        name: 'InvenTrack - Inventory & Sales Dashboard',
-        short_name: 'InvenTrack',
-        description: 'Inventory and sales analytics dashboard',
+        name: 'PharmaTrack - Pharmacy Inventory',
+        short_name: 'PharmaTrack',
+        description: 'Pharmacy inventory and sales management',
         theme_color: '#0f172a',
         background_color: '#0f172a',
         display: 'standalone',

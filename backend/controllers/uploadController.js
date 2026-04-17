@@ -17,6 +17,24 @@ function normalizeHeaders(row) {
   return normalized;
 }
 
+function parseExpiry(raw) {
+  if (!raw) return null;
+  if (typeof raw === "number") {
+    // Excel serial date
+    const d = new Date(Math.round((raw - 25569) * 86400 * 1000));
+    return isNaN(d) ? null : d.toISOString().split("T")[0];
+  }
+  const d = new Date(raw);
+  return isNaN(d) ? null : d.toISOString().split("T")[0];
+}
+
+function parseControlled(raw) {
+  if (raw === undefined || raw === null || raw === "") return 0;
+  if (typeof raw === "number") return raw ? 1 : 0;
+  const s = String(raw).trim().toLowerCase();
+  return ["yes", "y", "true", "1", "controlled"].includes(s) ? 1 : 0;
+}
+
 async function insertProducts(rows) {
   let inserted = 0;
   let failed = 0;
@@ -24,7 +42,7 @@ async function insertProducts(rows) {
 
   for (const row of rows) {
     try {
-      const name = row.name || row.product_name;
+      const name = row.name || row.product_name || row.product;
       const price = parseFloat(row.price);
       if (!name || isNaN(price)) {
         failed++;
@@ -32,8 +50,10 @@ async function insertProducts(rows) {
         continue;
       }
       await db.execute({
-        sql: `INSERT INTO products (name, sku, category, description, price, stock, reorder_level, supplier)
-              VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+        sql: `INSERT INTO products
+                (name, sku, category, description, price, stock, reorder_level, supplier,
+                 expiry_date, batch_number, lot_number, is_controlled)
+              VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
         args: [
           name,
           row.sku || null,
@@ -43,6 +63,10 @@ async function insertProducts(rows) {
           parseInt(row.stock) || 0,
           parseInt(row.reorder_level || row.reorder) || 10,
           row.supplier || null,
+          parseExpiry(row.expiry_date || row.expiry || row.expires || row.exp_date || row.exp),
+          row.batch_number || row.batch || null,
+          row.lot_number || row.lot || null,
+          parseControlled(row.is_controlled || row.controlled),
         ],
       });
       inserted++;
@@ -118,7 +142,7 @@ async function insertSales(rows, userId) {
 }
 
 function detectType(columns) {
-  if (columns.some((c) => ["name", "product_name", "sku", "stock", "reorder_level", "supplier"].includes(c)) && columns.includes("price")) return "products";
+  if (columns.some((c) => ["name", "product_name", "sku", "stock", "reorder_level", "supplier", "expiry_date", "expiry", "batch", "batch_number"].includes(c)) && columns.includes("price")) return "products";
   if (columns.some((c) => ["product_id", "quantity_sold", "sale_price", "quantity", "qty", "product", "customer", "customer_name", "payment"].includes(c))) return "sales";
   return null;
 }
