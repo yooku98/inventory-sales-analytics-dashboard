@@ -7,14 +7,28 @@ import db from "../db/turso.js";
 const storage = multer.memoryStorage();
 export const upload = multer({ storage }).single("file");
 
-// Normalize column headers: lowercase, trim, replace spaces with underscores
+// Normalize column headers: lowercase, trim, strip punctuation, replace spaces with underscores
 function normalizeHeaders(row) {
   const normalized = {};
   for (const [key, value] of Object.entries(row)) {
-    const clean = key.trim().toLowerCase().replace(/\s+/g, "_");
+    const clean = key
+      .trim()
+      .toLowerCase()
+      .replace(/[()[\]{}.,;:!?/\\]/g, "")  // strip punctuation
+      .replace(/\s+/g, "_")
+      .replace(/_+/g, "_")
+      .replace(/^_|_$/g, "");
     normalized[clean] = typeof value === "string" ? value.trim() : value;
   }
   return normalized;
+}
+
+// Pick the first defined value among several possible column aliases
+function pick(row, ...keys) {
+  for (const k of keys) {
+    if (row[k] !== undefined && row[k] !== null && row[k] !== "") return row[k];
+  }
+  return undefined;
 }
 
 function parseExpiry(raw) {
@@ -42,13 +56,26 @@ async function insertProducts(rows) {
 
   for (const row of rows) {
     try {
-      const name = row.name || row.product_name || row.product;
-      const price = parseFloat(row.price);
+      const name = pick(row, "name", "product_name", "product", "drug_name", "item_name");
+      const priceRaw = pick(row,
+        "price", "selling_price", "selling_price_ghs", "selling_price_gh", "unit_price",
+        "sell_price", "retail_price", "cost_price", "cost_price_ghs", "cost_price_gh"
+      );
+      const price = parseFloat(priceRaw);
       if (!name || isNaN(price)) {
         failed++;
         errors.push(`Row skipped: missing name or invalid price`);
         continue;
       }
+      const sku = pick(row, "sku", "product_id", "item_code", "code");
+      const stock = parseInt(pick(row, "stock", "current_stock", "stock_on_hand", "quantity", "qty", "on_hand")) || 0;
+      const reorder = parseInt(pick(row, "reorder_level", "reorder", "min_stock", "minimum_stock")) || 10;
+      const supplier = pick(row, "supplier", "vendor", "distributor") || null;
+      const expiry = parseExpiry(pick(row, "expiry_date", "expiry", "expires", "exp_date", "exp", "expiration_date"));
+      const batch = pick(row, "batch_number", "batch", "batch_no") || null;
+      const lot = pick(row, "lot_number", "lot", "lot_no") || null;
+      const controlled = parseControlled(pick(row, "is_controlled", "controlled", "controlled_substance", "is_controlled_substance"));
+
       await db.execute({
         sql: `INSERT INTO products
                 (name, sku, category, description, price, stock, reorder_level, supplier,
@@ -56,17 +83,17 @@ async function insertProducts(rows) {
               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
         args: [
           name,
-          row.sku || null,
+          sku || null,
           row.category || null,
-          row.description || null,
+          pick(row, "description", "notes", "storage_condition") || null,
           price,
-          parseInt(row.stock) || 0,
-          parseInt(row.reorder_level || row.reorder) || 10,
-          row.supplier || null,
-          parseExpiry(row.expiry_date || row.expiry || row.expires || row.exp_date || row.exp),
-          row.batch_number || row.batch || null,
-          row.lot_number || row.lot || null,
-          parseControlled(row.is_controlled || row.controlled),
+          stock,
+          reorder,
+          supplier,
+          expiry,
+          batch,
+          lot,
+          controlled,
         ],
       });
       inserted++;
@@ -142,8 +169,23 @@ async function insertSales(rows, userId) {
 }
 
 function detectType(columns) {
-  if (columns.some((c) => ["name", "product_name", "sku", "stock", "reorder_level", "supplier", "expiry_date", "expiry", "batch", "batch_number"].includes(c)) && columns.includes("price")) return "products";
-  if (columns.some((c) => ["product_id", "quantity_sold", "sale_price", "quantity", "qty", "product", "customer", "customer_name", "payment"].includes(c))) return "sales";
+  const hasNameCol = columns.some((c) =>
+    ["name", "product_name", "product", "drug_name", "item_name"].includes(c)
+  );
+  const hasPriceCol = columns.some((c) =>
+    ["price", "selling_price", "selling_price_ghs", "selling_price_gh", "unit_price",
+     "sell_price", "retail_price", "cost_price", "cost_price_ghs", "cost_price_gh"].includes(c)
+  );
+  const hasPharmaCol = columns.some((c) =>
+    ["expiry_date", "expiry", "batch_number", "batch", "supplier",
+     "controlled_substance", "is_controlled", "current_stock", "stock"].includes(c)
+  );
+  if (hasNameCol && (hasPriceCol || hasPharmaCol)) return "products";
+
+  if (columns.some((c) =>
+    ["product_id", "quantity_sold", "sale_price", "quantity", "qty", "product",
+     "customer", "customer_name", "payment"].includes(c)
+  )) return "sales";
   return null;
 }
 
