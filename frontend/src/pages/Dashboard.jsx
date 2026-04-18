@@ -181,10 +181,10 @@ export default function Dashboard() {
             pieData.length > 0 ? (
               <ResponsiveContainer width="100%" height={300}>
                 <PieChart>
-                  <Pie data={pieData} cx="50%" cy="50%" innerRadius={60} outerRadius={100} dataKey="value" label={({ name, value }) => `${name} (${value})`}>
+                  <Pie data={pieData} cx="50%" cy="50%" innerRadius={60} outerRadius={100} dataKey="value" paddingAngle={2}>
                     {pieData.map((_, i) => <Cell key={i} fill={COLORS[i % COLORS.length]} />)}
                   </Pie>
-                  <Tooltip />
+                  <Tooltip formatter={(value, name) => [`${value} products`, name]} />
                 </PieChart>
               </ResponsiveContainer>
             ) : <p className="text-gray-400 text-center py-16">No category data yet</p>
@@ -194,11 +194,10 @@ export default function Dashboard() {
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                 <ResponsiveContainer width="100%" height={400}>
                   <PieChart>
-                    <Pie data={pieData} cx="50%" cy="50%" innerRadius={80} outerRadius={140} dataKey="value" label={({ name, value }) => `${name} (${value})`}>
+                    <Pie data={pieData} cx="50%" cy="50%" innerRadius={80} outerRadius={140} dataKey="value" paddingAngle={2}>
                       {pieData.map((_, i) => <Cell key={i} fill={COLORS[i % COLORS.length]} />)}
                     </Pie>
-                    <Tooltip />
-                    <Legend />
+                    <Tooltip formatter={(value, name) => [`${value} products`, name]} />
                   </PieChart>
                 </ResponsiveContainer>
                 <div className="space-y-3">
