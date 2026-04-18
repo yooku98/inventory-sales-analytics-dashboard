@@ -1,5 +1,5 @@
 import { useEffect, useState, useMemo } from "react";
-import { getProducts, createProduct, updateProduct, deleteProduct } from "../lib/api";
+import { getProducts, createProduct, updateProduct, deleteProduct, bulkDeleteProducts } from "../lib/api";
 import { Plus, Pencil, Trash2, X, FileDown, FileSpreadsheet, Shield } from "lucide-react";
 import { exportToExcel, exportToPDF } from "../lib/export";
 import { GHANA_SUPPLIERS, PHARMACY_CATEGORIES, expiryStatus, EXPIRY_STYLES, daysUntilExpiry } from "../lib/pharmacy";
@@ -147,6 +147,7 @@ export default function Products() {
   const [modal, setModal] = useState(null);
   const [search, setSearch] = useState("");
   const [categoryFilter, setCategoryFilter] = useState("");
+  const [selected, setSelected] = useState(new Set());
 
   const load = () => {
     setLoading(true);
@@ -161,6 +162,39 @@ export default function Products() {
     if (!confirm(`Delete "${name}"?`)) return;
     try {
       await deleteProduct(id);
+      load();
+    } catch (err) {
+      alert(err.message);
+    }
+  };
+
+  const toggleOne = (id) => {
+    setSelected((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
+
+  const toggleAllFiltered = () => {
+    const filteredIds = filtered.map((p) => p.id);
+    const allSelected = filteredIds.every((id) => selected.has(id));
+    setSelected((prev) => {
+      const next = new Set(prev);
+      if (allSelected) filteredIds.forEach((id) => next.delete(id));
+      else filteredIds.forEach((id) => next.add(id));
+      return next;
+    });
+  };
+
+  const handleBulkDelete = async () => {
+    const ids = [...selected];
+    if (ids.length === 0) return;
+    if (!confirm(`Delete ${ids.length} product${ids.length !== 1 ? "s" : ""}? This cannot be undone.`)) return;
+    try {
+      await bulkDeleteProducts(ids);
+      setSelected(new Set());
       load();
     } catch (err) {
       alert(err.message);
@@ -194,6 +228,12 @@ export default function Products() {
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <h2 className="text-2xl font-bold text-slate-900">Products</h2>
         <div className="flex flex-wrap gap-2">
+          {selected.size > 0 && (
+            <button onClick={handleBulkDelete}
+              className="flex items-center gap-1.5 px-3 py-2 bg-red-600 text-white text-sm font-medium rounded-lg hover:bg-red-700">
+              <Trash2 size={15} /> Delete {selected.size}
+            </button>
+          )}
           <input
             placeholder="Search name, SKU, batch..."
             value={search}
@@ -270,6 +310,12 @@ export default function Products() {
             <table className="w-full text-sm">
               <thead className="bg-gray-50 text-left text-gray-600">
                 <tr>
+                  <th className="pl-6 py-3 w-8">
+                    <input type="checkbox"
+                      checked={filtered.length > 0 && filtered.every((p) => selected.has(p.id))}
+                      onChange={toggleAllFiltered}
+                      className="w-4 h-4 rounded text-indigo-600 cursor-pointer" />
+                  </th>
                   <th className="px-6 py-3 font-medium">Drug Name</th>
                   <th className="px-6 py-3 font-medium">Category</th>
                   <th className="px-6 py-3 font-medium">Price</th>
@@ -282,14 +328,20 @@ export default function Products() {
               </thead>
               <tbody>
                 {filtered.length === 0 ? (
-                  <tr><td colSpan={8} className="px-6 py-8 text-center text-gray-400">No products found</td></tr>
+                  <tr><td colSpan={9} className="px-6 py-8 text-center text-gray-400">No products found</td></tr>
                 ) : (
                   filtered.map((p) => {
                     const exp = expiryStatus(p.expiry_date);
                     const expStyle = EXPIRY_STYLES[exp];
                     const days = daysUntilExpiry(p.expiry_date);
                     return (
-                      <tr key={p.id} className="border-t border-gray-100 hover:bg-gray-50">
+                      <tr key={p.id} className={`border-t border-gray-100 hover:bg-gray-50 ${selected.has(p.id) ? "bg-indigo-50/50" : ""}`}>
+                        <td className="pl-6 py-3">
+                          <input type="checkbox"
+                            checked={selected.has(p.id)}
+                            onChange={() => toggleOne(p.id)}
+                            className="w-4 h-4 rounded text-indigo-600 cursor-pointer" />
+                        </td>
                         <td className="px-6 py-3 font-medium text-gray-900">
                           <div className="flex items-center gap-2">
                             {p.name}

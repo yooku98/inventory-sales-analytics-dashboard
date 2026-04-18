@@ -34,6 +34,8 @@ export const updateProduct = (id, data) =>
   request(`/products/${id}`, { method: "PUT", body: JSON.stringify(data) });
 export const deleteProduct = (id) =>
   request(`/products/${id}`, { method: "DELETE" });
+export const bulkDeleteProducts = (ids) =>
+  request("/products/bulk-delete", { method: "POST", body: JSON.stringify({ ids }) });
 export const getLowStock = () => request("/products/alerts/low-stock");
 export const getExpiring = (days = 90) => request(`/products/alerts/expiring?days=${days}`);
 export const getCategoryStats = () => request("/products/stats/by-category");

@@ -132,6 +132,24 @@ router.put("/:id", authenticateToken, asyncHandler(async (req, res) => {
   res.json(result.rows[0]);
 }));
 
+// BULK DELETE products (must be before /:id)
+router.post("/bulk-delete", authenticateToken, asyncHandler(async (req, res) => {
+  const { ids } = req.body;
+  if (!Array.isArray(ids) || ids.length === 0) {
+    return res.status(400).json({ error: "ids array is required" });
+  }
+  const numericIds = ids.map((n) => parseInt(n)).filter((n) => !isNaN(n));
+  if (numericIds.length === 0) {
+    return res.status(400).json({ error: "No valid ids provided" });
+  }
+  const placeholders = numericIds.map(() => "?").join(",");
+  const result = await db.execute({
+    sql: `DELETE FROM products WHERE id IN (${placeholders})`,
+    args: numericIds,
+  });
+  res.json({ deleted: result.rowsAffected || numericIds.length });
+}));
+
 // DELETE product
 router.delete("/:id", authenticateToken, asyncHandler(async (req, res) => {
   const result = await db.execute({
