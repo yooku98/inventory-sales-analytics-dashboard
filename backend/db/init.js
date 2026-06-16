@@ -54,6 +54,8 @@ async function createTables() {
     await addColumnIfMissing("products", "batch_number", "TEXT");
     await addColumnIfMissing("products", "lot_number", "TEXT");
     await addColumnIfMissing("products", "is_controlled", "INTEGER DEFAULT 0");
+    await addColumnIfMissing("products", "archived_at", "TEXT DEFAULT NULL");
+    await addColumnIfMissing("sales", "product_name", "TEXT");
 
     await db.execute(`
       CREATE TABLE IF NOT EXISTS sales (
@@ -70,7 +72,7 @@ async function createTables() {
         created_by INTEGER,
         created_at TEXT DEFAULT (datetime('now')),
         updated_at TEXT DEFAULT (datetime('now')),
-        FOREIGN KEY (product_id) REFERENCES products(id) ON DELETE CASCADE,
+        FOREIGN KEY (product_id) REFERENCES products(id) ON DELETE SET NULL,
         FOREIGN KEY (created_by) REFERENCES users(id) ON DELETE SET NULL
       )
     `);

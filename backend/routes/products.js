@@ -2,14 +2,14 @@
 import express from "express";
 import db from "../db/turso.js";
 import { asyncHandler } from "../middleware/errorHandler.js";
-import { authenticateToken } from "../middleware/auth.js";
+import { authenticateToken, requireRole } from "../middleware/auth.js";
 
 const router = express.Router();
 
 // GET low stock products (must be before /:id)
 router.get("/alerts/low-stock", authenticateToken, asyncHandler(async (req, res) => {
   const result = await db.execute(
-    "SELECT * FROM products WHERE stock <= reorder_level ORDER BY stock ASC"
+    "SELECT * FROM products WHERE stock <= reorder_level AND archived_at IS NULL ORDER BY stock ASC"
   );
   res.json(result.rows);
 }));
@@ -20,6 +20,7 @@ router.get("/alerts/expiring", authenticateToken, asyncHandler(async (req, res) 
   const result = await db.execute({
     sql: `SELECT * FROM products
           WHERE expiry_date IS NOT NULL
+            AND archived_at IS NULL
             AND date(expiry_date) <= date('now', '+' || ? || ' days')
           ORDER BY date(expiry_date) ASC`,
     args: [days],
@@ -30,24 +31,58 @@ router.get("/alerts/expiring", authenticateToken, asyncHandler(async (req, res) 
 // GET products by category with stats (must be before /:id)
 router.get("/stats/by-category", authenticateToken, asyncHandler(async (req, res) => {
   const result = await db.execute(
-    `SELECT category, COUNT(*) as total_products, SUM(stock) as total_stock, AVG(price) as avg_price
-     FROM products GROUP BY category ORDER BY total_products DESC`
+    `SELECT category, COUNT(*) as total_products, SUM(stock) as total_stock,
+            AVG(price) as avg_price, SUM(price * stock) as total_value
+     FROM products WHERE archived_at IS NULL
+     GROUP BY category ORDER BY total_products DESC`
   );
   res.json(result.rows);
 }));
 
-// GET all products
+// GET all products (paginated + filtered)
 router.get("/", authenticateToken, asyncHandler(async (req, res) => {
-  const result = await db.execute(
-    "SELECT * FROM products ORDER BY created_at DESC"
-  );
-  res.json(result.rows);
+  const page = Math.max(1, parseInt(req.query.page) || 1);
+  const limit = Math.min(200, Math.max(1, parseInt(req.query.limit) || 50));
+  const offset = (page - 1) * limit;
+  const search = req.query.search?.trim() || "";
+  const category = req.query.category?.trim() || "";
+
+  const conditions = ["archived_at IS NULL"];
+  const args = [];
+
+  if (search) {
+    conditions.push("(name LIKE ? OR sku LIKE ? OR batch_number LIKE ? OR supplier LIKE ?)");
+    const s = `%${search}%`;
+    args.push(s, s, s, s);
+  }
+  if (category) {
+    conditions.push("category = ?");
+    args.push(category);
+  }
+
+  const where = conditions.join(" AND ");
+
+  const countResult = await db.execute({
+    sql: `SELECT COUNT(*) as total FROM products WHERE ${where}`,
+    args: [...args],
+  });
+  const total = Number(countResult.rows[0].total);
+
+  const result = await db.execute({
+    sql: `SELECT * FROM products WHERE ${where} ORDER BY created_at DESC LIMIT ? OFFSET ?`,
+    args: [...args, limit, offset],
+  });
+
+  res.json({
+    data: result.rows,
+    pagination: { page, limit, total, pages: Math.ceil(total / limit) },
+  });
 }));
 
 // GET single product by ID
 router.get("/:id", authenticateToken, asyncHandler(async (req, res) => {
   const result = await db.execute({
-    sql: "SELECT * FROM products WHERE id = ?",
+    sql: "SELECT * FROM products WHERE id = ? AND archived_at IS NULL",
     args: [req.params.id],
   });
 
@@ -116,7 +151,7 @@ router.put("/:id", authenticateToken, asyncHandler(async (req, res) => {
             lot_number = COALESCE(?, lot_number),
             is_controlled = COALESCE(?, is_controlled),
             updated_at = datetime('now')
-          WHERE id = ? RETURNING *`,
+          WHERE id = ? AND archived_at IS NULL RETURNING *`,
     args: [
       name, sku, category, description, price, stock, reorder_level, supplier,
       expiry_date, batch_number, lot_number,
@@ -132,8 +167,8 @@ router.put("/:id", authenticateToken, asyncHandler(async (req, res) => {
   res.json(result.rows[0]);
 }));
 
-// BULK DELETE products (must be before /:id)
-router.post("/bulk-delete", authenticateToken, asyncHandler(async (req, res) => {
+// ARCHIVE (soft-delete) multiple products — owner only (must be before /:id)
+router.post("/bulk-delete", authenticateToken, requireRole("owner"), asyncHandler(async (req, res) => {
   const { ids } = req.body;
   if (!Array.isArray(ids) || ids.length === 0) {
     return res.status(400).json({ error: "ids array is required" });
@@ -144,16 +179,16 @@ router.post("/bulk-delete", authenticateToken, asyncHandler(async (req, res) => 
   }
   const placeholders = numericIds.map(() => "?").join(",");
   const result = await db.execute({
-    sql: `DELETE FROM products WHERE id IN (${placeholders})`,
+    sql: `UPDATE products SET archived_at = datetime('now') WHERE id IN (${placeholders}) AND archived_at IS NULL`,
     args: numericIds,
   });
-  res.json({ deleted: result.rowsAffected || numericIds.length });
+  res.json({ archived: result.rowsAffected || numericIds.length });
 }));
 
-// DELETE product
-router.delete("/:id", authenticateToken, asyncHandler(async (req, res) => {
+// ARCHIVE (soft-delete) single product — owner only
+router.delete("/:id", authenticateToken, requireRole("owner"), asyncHandler(async (req, res) => {
   const result = await db.execute({
-    sql: "DELETE FROM products WHERE id = ? RETURNING id",
+    sql: "UPDATE products SET archived_at = datetime('now') WHERE id = ? AND archived_at IS NULL RETURNING id",
     args: [req.params.id],
   });
 
@@ -161,7 +196,7 @@ router.delete("/:id", authenticateToken, asyncHandler(async (req, res) => {
     return res.status(404).json({ error: "Product not found" });
   }
 
-  res.json({ message: "Product deleted successfully" });
+  res.json({ message: "Product archived successfully" });
 }));
 
 export default router;

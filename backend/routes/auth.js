@@ -12,7 +12,7 @@ const router = express.Router();
 // REGISTER new user
 router.post("/register", [
   body("username").trim().isLength({ min: 3 }).escape(),
-  body("email").isEmail().normalizeEmail(),
+  body("email").isEmail().toLowerCase(),
   body("password").isLength({ min: 6 })
 ], asyncHandler(async (req, res) => {
   const errors = validationResult(req);
@@ -58,7 +58,7 @@ router.post("/register", [
 
 // LOGIN
 router.post("/login", [
-  body("email").isEmail().normalizeEmail(),
+  body("email").isEmail().toLowerCase(),
   body("password").exists()
 ], asyncHandler(async (req, res) => {
   const errors = validationResult(req);
@@ -69,7 +69,7 @@ router.post("/login", [
   const { email, password } = req.body;
 
   const result = await db.execute({
-    sql: "SELECT * FROM users WHERE email = ?",
+    sql: "SELECT * FROM users WHERE LOWER(email) = LOWER(?)",
     args: [email],
   });
 

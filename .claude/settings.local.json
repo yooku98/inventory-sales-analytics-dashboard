@@ -13,7 +13,13 @@
       "Bash(node -e ':*)",
       "Bash(npm ls:*)",
       "Bash(npx --yes svg2png-cli --help)",
-      "Bash(npx --yes sharp-cli -i frontend/public/icon-192.svg -o frontend/public/apple-touch-icon.png resize 180 180)"
+      "Bash(npx --yes sharp-cli -i frontend/public/icon-192.svg -o frontend/public/apple-touch-icon.png resize 180 180)",
+      "Bash(node -e ' *)",
+      "Bash(node _test_normalize.mjs)",
+      "PowerShell(Get-NetTCPConnection -LocalPort 5000 -State Listen -ErrorAction SilentlyContinue)",
+      "PowerShell(Get-NetTCPConnection -LocalPort 5000 -ErrorAction SilentlyContinue)",
+      "PowerShell(Get-NetTCPConnection -LocalPort 5173 -ErrorAction SilentlyContinue)",
+      "PowerShell(Get-Process -Id 7080,14224 -ErrorAction SilentlyContinue | Select-Object Id, ProcessName, Path, StartTime | Format-List; try { $r = Invoke-WebRequest -Uri \"http://localhost:5000/health\" -UseBasicParsing -TimeoutSec 3; Write-Output \"HEALTH STATUS: $\\($r.StatusCode\\)\"; Write-Output $r.Content } catch { Write-Output \"HEALTH FAILED: $\\($_.Exception.Message\\)\" })"
     ]
   }
 }

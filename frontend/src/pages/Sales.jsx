@@ -1,7 +1,9 @@
-import { useEffect, useState, useMemo } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { getSales, createSale, getProducts } from "../lib/api";
-import { Plus, X, Filter, Search, FileDown, FileSpreadsheet } from "lucide-react";
+import { Plus, X, Filter, Search, FileDown, FileSpreadsheet, ChevronLeft, ChevronRight } from "lucide-react";
 import { exportToExcel, exportToPDF } from "../lib/export";
+
+const LIMIT = 50;
 
 function SaleModal({ onClose, onSave }) {
   const [products, setProducts] = useState([]);
@@ -14,7 +16,8 @@ function SaleModal({ onClose, onSave }) {
   const [error, setError] = useState("");
 
   useEffect(() => {
-    getProducts().then(setProducts).catch(console.error);
+    // Fetch all products for the dropdown (high limit, no search filter)
+    getProducts({ limit: 1000 }).then(({ data }) => setProducts(data)).catch(console.error);
   }, []);
 
   const selectedProduct = products.find((p) => p.id === Number(form.product_id));
@@ -113,79 +116,103 @@ function SaleModal({ onClose, onSave }) {
   );
 }
 
+function Pagination({ pagination, onPage }) {
+  if (!pagination || pagination.pages <= 1) return null;
+  const { page, pages, total, limit } = pagination;
+  const from = (page - 1) * limit + 1;
+  const to = Math.min(page * limit, total);
+  return (
+    <div className="flex items-center justify-between px-6 py-3 border-t border-gray-100 text-sm text-gray-500">
+      <span>{from}–{to} of {total.toLocaleString()} sales</span>
+      <div className="flex items-center gap-1">
+        <button onClick={() => onPage(page - 1)} disabled={page <= 1}
+          className="p-1.5 rounded hover:bg-gray-100 disabled:opacity-30 disabled:cursor-not-allowed">
+          <ChevronLeft size={16} />
+        </button>
+        <span className="px-3">Page {page} of {pages}</span>
+        <button onClick={() => onPage(page + 1)} disabled={page >= pages}
+          className="p-1.5 rounded hover:bg-gray-100 disabled:opacity-30 disabled:cursor-not-allowed">
+          <ChevronRight size={16} />
+        </button>
+      </div>
+    </div>
+  );
+}
+
 export default function Sales() {
   const [sales, setSales] = useState([]);
+  const [pagination, setPagination] = useState(null);
+  const [totalRevenue, setTotalRevenue] = useState(0);
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
+
+  // Filters
+  const [searchInput, setSearchInput] = useState("");
   const [search, setSearch] = useState("");
   const [paymentFilter, setPaymentFilter] = useState("");
   const [productFilter, setProductFilter] = useState("");
   const [dateFrom, setDateFrom] = useState("");
   const [dateTo, setDateTo] = useState("");
   const [sortBy, setSortBy] = useState("date_desc");
+  const [page, setPage] = useState(1);
 
-  const load = () => {
-    setLoading(true);
-    getSales().then(setSales).catch(console.error).finally(() => setLoading(false));
-  };
-
-  useEffect(load, []);
-
-  // Unique values for filter dropdowns
-  const paymentMethods = useMemo(() => [...new Set(sales.map(s => s.payment_method).filter(Boolean))].sort(), [sales]);
-  const productNames = useMemo(() => [...new Set(sales.map(s => s.product_name).filter(Boolean))].sort(), [sales]);
-
-  // Filtered and sorted sales
-  const filtered = useMemo(() => {
-    let result = sales;
-
-    if (search) {
-      const q = search.toLowerCase();
-      result = result.filter(s =>
-        s.product_name?.toLowerCase().includes(q) ||
-        s.customer_name?.toLowerCase().includes(q)
-      );
-    }
-    if (paymentFilter) {
-      result = result.filter(s => s.payment_method === paymentFilter);
-    }
-    if (productFilter) {
-      result = result.filter(s => s.product_name === productFilter);
-    }
-    if (dateFrom) {
-      result = result.filter(s => (s.sale_date?.split("T")[0] || "") >= dateFrom);
-    }
-    if (dateTo) {
-      result = result.filter(s => (s.sale_date?.split("T")[0] || "") <= dateTo);
-    }
-
-    // Sort
-    result = [...result].sort((a, b) => {
-      switch (sortBy) {
-        case "date_asc": return (a.sale_date || "").localeCompare(b.sale_date || "");
-        case "date_desc": return (b.sale_date || "").localeCompare(a.sale_date || "");
-        case "total_asc": return (Number(a.total_amount) || 0) - (Number(b.total_amount) || 0);
-        case "total_desc": return (Number(b.total_amount) || 0) - (Number(a.total_amount) || 0);
-        case "qty_desc": return (b.quantity_sold || 0) - (a.quantity_sold || 0);
-        case "product": return (a.product_name || "").localeCompare(b.product_name || "");
-        default: return 0;
-      }
-    });
-
-    return result;
-  }, [sales, search, paymentFilter, productFilter, dateFrom, dateTo, sortBy]);
-
-  const totalRevenue = filtered.reduce((sum, s) => sum + (Number(s.total_amount) || 0), 0);
   const hasFilters = search || paymentFilter || productFilter || dateFrom || dateTo;
 
+  const load = useCallback((overrides = {}) => {
+    setLoading(true);
+    const params = {
+      page, limit: LIMIT, search, payment: paymentFilter,
+      product: productFilter, dateFrom, dateTo, ...overrides,
+    };
+    getSales(params)
+      .then(({ data, pagination: pg, total_revenue }) => {
+        setSales(data);
+        setPagination(pg);
+        setTotalRevenue(total_revenue || 0);
+      })
+      .catch(console.error)
+      .finally(() => setLoading(false));
+  }, [page, search, paymentFilter, productFilter, dateFrom, dateTo]);
+
+  useEffect(() => { load(); }, [load]);
+
+  // Debounce search
+  useEffect(() => {
+    const t = setTimeout(() => {
+      setSearch(searchInput);
+      setPage(1);
+    }, 300);
+    return () => clearTimeout(t);
+  }, [searchInput]);
+
+  const setFilter = (setter) => (value) => {
+    setter(value);
+    setPage(1);
+  };
+
   const clearFilters = () => {
+    setSearchInput("");
     setSearch("");
     setPaymentFilter("");
     setProductFilter("");
     setDateFrom("");
     setDateTo("");
     setSortBy("date_desc");
+    setPage(1);
   };
+
+  // Client-side sort on current page only
+  const sorted = [...sales].sort((a, b) => {
+    switch (sortBy) {
+      case "date_asc": return (a.sale_date || "").localeCompare(b.sale_date || "");
+      case "date_desc": return (b.sale_date || "").localeCompare(a.sale_date || "");
+      case "total_asc": return (Number(a.total_amount) || 0) - (Number(b.total_amount) || 0);
+      case "total_desc": return (Number(b.total_amount) || 0) - (Number(a.total_amount) || 0);
+      case "qty_desc": return (b.quantity_sold || 0) - (a.quantity_sold || 0);
+      case "product": return (a.product_name || "").localeCompare(b.product_name || "");
+      default: return 0;
+    }
+  });
 
   const salesColumns = [
     { key: "sale_date", label: "Date", format: (v) => v?.split("T")[0] || "" },
@@ -202,11 +229,11 @@ export default function Sales() {
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <h2 className="text-2xl font-bold text-gray-900">Sales</h2>
         <div className="flex flex-wrap gap-2">
-          <button onClick={() => exportToExcel(filtered, salesColumns, "sales")}
+          <button onClick={() => exportToExcel(sorted, salesColumns, "sales")}
             className="flex items-center gap-1.5 px-3 py-2 bg-emerald-50 text-emerald-700 text-sm font-medium rounded-lg hover:bg-emerald-100 border border-emerald-200">
             <FileSpreadsheet size={15} /> Excel
           </button>
-          <button onClick={() => exportToPDF(filtered, salesColumns, "sales", "Sales Report")}
+          <button onClick={() => exportToPDF(sorted, salesColumns, "sales", "Sales Report")}
             className="flex items-center gap-1.5 px-3 py-2 bg-rose-50 text-rose-700 text-sm font-medium rounded-lg hover:bg-rose-100 border border-rose-200">
             <FileDown size={15} /> PDF
           </button>
@@ -230,24 +257,31 @@ export default function Sales() {
             <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
             <input
               placeholder="Search..."
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
+              value={searchInput}
+              onChange={(e) => setSearchInput(e.target.value)}
               className="w-full pl-8 pr-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 outline-none"
             />
           </div>
-          <select value={paymentFilter} onChange={(e) => setPaymentFilter(e.target.value)}
+          <select value={paymentFilter} onChange={(e) => setFilter(setPaymentFilter)(e.target.value)}
             className="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 outline-none">
             <option value="">All Payments</option>
-            {paymentMethods.map(m => <option key={m} value={m}>{m}</option>)}
+            <option value="cash">Cash</option>
+            <option value="card">Card</option>
+            <option value="transfer">Transfer</option>
+            <option value="Mobile Money (MTN)">MoMo MTN</option>
+            <option value="Mobile Money (Telecel)">MoMo Telecel</option>
+            <option value="Mobile Money (AT)">MoMo AT</option>
+            <option value="other">Other</option>
           </select>
-          <select value={productFilter} onChange={(e) => setProductFilter(e.target.value)}
-            className="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 outline-none">
-            <option value="">All Products</option>
-            {productNames.map(n => <option key={n} value={n}>{n}</option>)}
-          </select>
-          <input type="date" value={dateFrom} onChange={(e) => setDateFrom(e.target.value)} placeholder="From"
+          <input
+            placeholder="Product name"
+            value={productFilter}
+            onChange={(e) => setFilter(setProductFilter)(e.target.value)}
+            className="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 outline-none"
+          />
+          <input type="date" value={dateFrom} onChange={(e) => setFilter(setDateFrom)(e.target.value)}
             className="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 outline-none" />
-          <input type="date" value={dateTo} onChange={(e) => setDateTo(e.target.value)} placeholder="To"
+          <input type="date" value={dateTo} onChange={(e) => setFilter(setDateTo)(e.target.value)}
             className="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 outline-none" />
           <select value={sortBy} onChange={(e) => setSortBy(e.target.value)}
             className="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 outline-none">
@@ -264,11 +298,13 @@ export default function Sales() {
       {/* Summary bar */}
       <div className="flex flex-wrap items-center gap-4 text-sm">
         <span className="text-gray-500">
-          Showing <strong className="text-gray-900">{filtered.length}</strong> of {sales.length} sales
+          <strong className="text-gray-900">{(pagination?.total || 0).toLocaleString()}</strong> total sales
+          {hasFilters && " matching filters"}
         </span>
         <span className="text-gray-300">|</span>
         <span className="text-gray-500">
-          Total: <strong className="text-gray-900">GH₵{totalRevenue.toLocaleString(undefined, { minimumFractionDigits: 2 })}</strong>
+          Revenue: <strong className="text-gray-900">GH₵{totalRevenue.toLocaleString(undefined, { minimumFractionDigits: 2 })}</strong>
+          {hasFilters && " (filtered)"}
         </span>
       </div>
 
@@ -290,12 +326,12 @@ export default function Sales() {
                 </tr>
               </thead>
               <tbody>
-                {filtered.length === 0 ? (
+                {sorted.length === 0 ? (
                   <tr><td colSpan={7} className="px-6 py-8 text-center text-gray-400">
                     {hasFilters ? "No sales match your filters" : "No sales recorded yet"}
                   </td></tr>
                 ) : (
-                  filtered.map((s) => (
+                  sorted.map((s) => (
                     <tr key={s.id} className="border-t border-gray-100 hover:bg-gray-50">
                       <td className="px-6 py-3 text-gray-500">{s.sale_date?.split("T")[0]}</td>
                       <td className="px-6 py-3 font-medium text-gray-900">{s.product_name}</td>
@@ -314,6 +350,7 @@ export default function Sales() {
               </tbody>
             </table>
           </div>
+          <Pagination pagination={pagination} onPage={(p) => setPage(p)} />
         </div>
       )}
 

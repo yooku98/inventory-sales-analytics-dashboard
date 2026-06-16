@@ -1,8 +1,11 @@
-import { useEffect, useState, useMemo } from "react";
-import { getProducts, createProduct, updateProduct, deleteProduct, bulkDeleteProducts } from "../lib/api";
-import { Plus, Pencil, Trash2, X, FileDown, FileSpreadsheet, Shield } from "lucide-react";
+import { useEffect, useState, useCallback } from "react";
+import { getProducts, getCategoryStats, createProduct, updateProduct, deleteProduct, bulkDeleteProducts } from "../lib/api";
+import { Plus, Pencil, Trash2, X, FileDown, FileSpreadsheet, Shield, ChevronLeft, ChevronRight } from "lucide-react";
 import { exportToExcel, exportToPDF } from "../lib/export";
 import { GHANA_SUPPLIERS, PHARMACY_CATEGORIES, expiryStatus, EXPIRY_STYLES, daysUntilExpiry } from "../lib/pharmacy";
+import { useAuth } from "../context/AuthContext";
+
+const LIMIT = 50;
 
 const emptyForm = {
   name: "", sku: "", category: "", description: "",
@@ -141,28 +144,83 @@ function ProductModal({ product, onClose, onSave }) {
   );
 }
 
+function Pagination({ pagination, onPage }) {
+  if (!pagination || pagination.pages <= 1) return null;
+  const { page, pages, total, limit } = pagination;
+  const from = (page - 1) * limit + 1;
+  const to = Math.min(page * limit, total);
+  return (
+    <div className="flex items-center justify-between px-6 py-3 border-t border-gray-100 text-sm text-gray-500">
+      <span>{from}–{to} of {total.toLocaleString()}</span>
+      <div className="flex items-center gap-1">
+        <button onClick={() => onPage(page - 1)} disabled={page <= 1}
+          className="p-1.5 rounded hover:bg-gray-100 disabled:opacity-30 disabled:cursor-not-allowed">
+          <ChevronLeft size={16} />
+        </button>
+        <span className="px-3">Page {page} of {pages}</span>
+        <button onClick={() => onPage(page + 1)} disabled={page >= pages}
+          className="p-1.5 rounded hover:bg-gray-100 disabled:opacity-30 disabled:cursor-not-allowed">
+          <ChevronRight size={16} />
+        </button>
+      </div>
+    </div>
+  );
+}
+
 export default function Products() {
+  const { user } = useAuth();
+  const isOwner = user?.role === "owner";
+
   const [products, setProducts] = useState([]);
+  const [pagination, setPagination] = useState(null);
+  const [categoryStats, setCategoryStats] = useState([]);
   const [loading, setLoading] = useState(true);
   const [modal, setModal] = useState(null);
   const [search, setSearch] = useState("");
+  const [searchInput, setSearchInput] = useState("");
   const [categoryFilter, setCategoryFilter] = useState("");
+  const [page, setPage] = useState(1);
   const [selected, setSelected] = useState(new Set());
 
-  const load = () => {
+  const loadStats = useCallback(() => {
+    getCategoryStats().then(setCategoryStats).catch(console.error);
+  }, []);
+
+  const loadProducts = useCallback((overrides = {}) => {
     setLoading(true);
-    getProducts().then(setProducts).catch(console.error).finally(() => setLoading(false));
+    const params = { page, limit: LIMIT, search, category: categoryFilter, ...overrides };
+    getProducts(params)
+      .then(({ data, pagination: pg }) => {
+        setProducts(data);
+        setPagination(pg);
+      })
+      .catch(console.error)
+      .finally(() => setLoading(false));
+  }, [page, search, categoryFilter]);
+
+  useEffect(() => { loadStats(); }, [loadStats]);
+  useEffect(() => { loadProducts(); }, [loadProducts]);
+
+  // Debounce search input
+  useEffect(() => {
+    const t = setTimeout(() => {
+      setSearch(searchInput);
+      setPage(1);
+    }, 300);
+    return () => clearTimeout(t);
+  }, [searchInput]);
+
+  const handleCategoryFilter = (cat) => {
+    setCategoryFilter(cat);
+    setPage(1);
   };
 
-  useEffect(load, []);
-
-  const categories = useMemo(() => [...new Set(products.map(p => p.category).filter(Boolean))].sort(), [products]);
-
   const handleDelete = async (id, name) => {
-    if (!confirm(`Delete "${name}"?`)) return;
+    if (!confirm(`Archive "${name}"? Its sales history will be preserved.`)) return;
     try {
       await deleteProduct(id);
-      load();
+      loadProducts();
+      loadStats();
     } catch (err) {
       alert(err.message);
     }
@@ -177,13 +235,13 @@ export default function Products() {
     });
   };
 
-  const toggleAllFiltered = () => {
-    const filteredIds = filtered.map((p) => p.id);
-    const allSelected = filteredIds.every((id) => selected.has(id));
+  const toggleAllPage = () => {
+    const pageIds = products.map((p) => p.id);
+    const allSelected = pageIds.every((id) => selected.has(id));
     setSelected((prev) => {
       const next = new Set(prev);
-      if (allSelected) filteredIds.forEach((id) => next.delete(id));
-      else filteredIds.forEach((id) => next.add(id));
+      if (allSelected) pageIds.forEach((id) => next.delete(id));
+      else pageIds.forEach((id) => next.add(id));
       return next;
     });
   };
@@ -191,25 +249,16 @@ export default function Products() {
   const handleBulkDelete = async () => {
     const ids = [...selected];
     if (ids.length === 0) return;
-    if (!confirm(`Delete ${ids.length} product${ids.length !== 1 ? "s" : ""}? This cannot be undone.`)) return;
+    if (!confirm(`Archive ${ids.length} product${ids.length !== 1 ? "s" : ""}? Their sales history will be preserved.`)) return;
     try {
       await bulkDeleteProducts(ids);
       setSelected(new Set());
-      load();
+      loadProducts();
+      loadStats();
     } catch (err) {
       alert(err.message);
     }
   };
-
-  const filtered = products.filter((p) => {
-    const matchesSearch = !search ||
-      p.name?.toLowerCase().includes(search.toLowerCase()) ||
-      p.category?.toLowerCase().includes(search.toLowerCase()) ||
-      p.sku?.toLowerCase().includes(search.toLowerCase()) ||
-      p.batch_number?.toLowerCase().includes(search.toLowerCase());
-    const matchesCategory = !categoryFilter || p.category === categoryFilter;
-    return matchesSearch && matchesCategory;
-  });
 
   const productColumns = [
     { key: "name", label: "Drug Name" },
@@ -228,23 +277,23 @@ export default function Products() {
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <h2 className="text-2xl font-bold text-slate-900">Products</h2>
         <div className="flex flex-wrap gap-2">
-          {selected.size > 0 && (
+          {isOwner && selected.size > 0 && (
             <button onClick={handleBulkDelete}
               className="flex items-center gap-1.5 px-3 py-2 bg-red-600 text-white text-sm font-medium rounded-lg hover:bg-red-700">
-              <Trash2 size={15} /> Delete {selected.size}
+              <Trash2 size={15} /> Archive {selected.size}
             </button>
           )}
           <input
             placeholder="Search name, SKU, batch..."
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
+            value={searchInput}
+            onChange={(e) => setSearchInput(e.target.value)}
             className="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 outline-none"
           />
-          <button onClick={() => exportToExcel(filtered, productColumns, "products")}
+          <button onClick={() => exportToExcel(products, productColumns, "products")}
             className="flex items-center gap-1.5 px-3 py-2 bg-emerald-50 text-emerald-700 text-sm font-medium rounded-lg hover:bg-emerald-100 border border-emerald-200">
             <FileSpreadsheet size={15} /> Excel
           </button>
-          <button onClick={() => exportToPDF(filtered, productColumns, "products", "Products Report")}
+          <button onClick={() => exportToPDF(products, productColumns, "products", "Products Report")}
             className="flex items-center gap-1.5 px-3 py-2 bg-rose-50 text-rose-700 text-sm font-medium rounded-lg hover:bg-rose-100 border border-rose-200">
             <FileDown size={15} /> PDF
           </button>
@@ -257,48 +306,43 @@ export default function Products() {
       {/* Category tabs */}
       <div className="flex flex-wrap gap-2">
         <button
-          onClick={() => setCategoryFilter("")}
+          onClick={() => handleCategoryFilter("")}
           className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
             !categoryFilter ? "bg-indigo-600 text-white" : "bg-gray-100 text-gray-600 hover:bg-gray-200"
           }`}
         >
-          All ({products.length})
+          All ({categoryStats.reduce((s, c) => s + Number(c.total_products), 0)})
         </button>
-        {categories.map((cat) => {
-          const count = products.filter(p => p.category === cat).length;
-          return (
-            <button
-              key={cat}
-              onClick={() => setCategoryFilter(categoryFilter === cat ? "" : cat)}
-              className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
-                categoryFilter === cat ? "bg-indigo-600 text-white" : "bg-gray-100 text-gray-600 hover:bg-gray-200"
-              }`}
-            >
-              {cat} ({count})
-            </button>
-          );
-        })}
+        {categoryStats.map((stat) => (
+          <button
+            key={stat.category}
+            onClick={() => handleCategoryFilter(categoryFilter === stat.category ? "" : stat.category)}
+            className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
+              categoryFilter === stat.category ? "bg-indigo-600 text-white" : "bg-gray-100 text-gray-600 hover:bg-gray-200"
+            }`}
+          >
+            {stat.category} ({stat.total_products})
+          </button>
+        ))}
       </div>
 
-      {/* Category summary */}
-      {!loading && categories.length > 0 && (
+      {/* Category summary cards */}
+      {categoryStats.length > 0 && (
         <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
-          {(categoryFilter ? categories.filter(c => c === categoryFilter) : categories).map((cat) => {
-            const catProducts = products.filter(p => p.category === cat);
-            const totalStock = catProducts.reduce((s, p) => s + (p.stock || 0), 0);
-            const totalValue = catProducts.reduce((s, p) => s + (p.price || 0) * (p.stock || 0), 0);
-            return (
-              <div key={cat} onClick={() => setCategoryFilter(categoryFilter === cat ? "" : cat)}
-                className={`bg-white rounded-xl border p-4 cursor-pointer transition-all hover:shadow-md ${categoryFilter === cat ? "border-indigo-300 ring-1 ring-indigo-200" : "border-gray-200"}`}>
-                <p className="text-sm font-medium text-gray-900">{cat}</p>
-                <div className="mt-2 space-y-1 text-xs text-gray-500">
-                  <div className="flex justify-between"><span>Products</span><span className="font-medium text-gray-900">{catProducts.length}</span></div>
-                  <div className="flex justify-between"><span>Total Stock</span><span className="font-medium text-gray-900">{totalStock.toLocaleString()}</span></div>
-                  <div className="flex justify-between"><span>Value</span><span className="font-medium text-gray-900">GH₵{totalValue.toLocaleString(undefined, { minimumFractionDigits: 2 })}</span></div>
-                </div>
+          {(categoryFilter ? categoryStats.filter(s => s.category === categoryFilter) : categoryStats).map((stat) => (
+            <div key={stat.category}
+              onClick={() => handleCategoryFilter(categoryFilter === stat.category ? "" : stat.category)}
+              className={`bg-white rounded-xl border p-4 cursor-pointer transition-all hover:shadow-md ${
+                categoryFilter === stat.category ? "border-indigo-300 ring-1 ring-indigo-200" : "border-gray-200"
+              }`}>
+              <p className="text-sm font-medium text-gray-900">{stat.category}</p>
+              <div className="mt-2 space-y-1 text-xs text-gray-500">
+                <div className="flex justify-between"><span>Products</span><span className="font-medium text-gray-900">{stat.total_products}</span></div>
+                <div className="flex justify-between"><span>Total Stock</span><span className="font-medium text-gray-900">{Number(stat.total_stock).toLocaleString()}</span></div>
+                <div className="flex justify-between"><span>Value</span><span className="font-medium text-gray-900">GH₵{Number(stat.total_value || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}</span></div>
               </div>
-            );
-          })}
+            </div>
+          ))}
         </div>
       )}
 
@@ -310,12 +354,14 @@ export default function Products() {
             <table className="w-full text-sm">
               <thead className="bg-gray-50 text-left text-gray-600">
                 <tr>
-                  <th className="pl-6 py-3 w-8">
-                    <input type="checkbox"
-                      checked={filtered.length > 0 && filtered.every((p) => selected.has(p.id))}
-                      onChange={toggleAllFiltered}
-                      className="w-4 h-4 rounded text-indigo-600 cursor-pointer" />
-                  </th>
+                  {isOwner && (
+                    <th className="pl-6 py-3 w-8">
+                      <input type="checkbox"
+                        checked={products.length > 0 && products.every((p) => selected.has(p.id))}
+                        onChange={toggleAllPage}
+                        className="w-4 h-4 rounded text-indigo-600 cursor-pointer" />
+                    </th>
+                  )}
                   <th className="px-6 py-3 font-medium">Drug Name</th>
                   <th className="px-6 py-3 font-medium">Category</th>
                   <th className="px-6 py-3 font-medium">Price</th>
@@ -327,21 +373,23 @@ export default function Products() {
                 </tr>
               </thead>
               <tbody>
-                {filtered.length === 0 ? (
-                  <tr><td colSpan={9} className="px-6 py-8 text-center text-gray-400">No products found</td></tr>
+                {products.length === 0 ? (
+                  <tr><td colSpan={isOwner ? 9 : 8} className="px-6 py-8 text-center text-gray-400">No products found</td></tr>
                 ) : (
-                  filtered.map((p) => {
+                  products.map((p) => {
                     const exp = expiryStatus(p.expiry_date);
                     const expStyle = EXPIRY_STYLES[exp];
                     const days = daysUntilExpiry(p.expiry_date);
                     return (
                       <tr key={p.id} className={`border-t border-gray-100 hover:bg-gray-50 ${selected.has(p.id) ? "bg-indigo-50/50" : ""}`}>
-                        <td className="pl-6 py-3">
-                          <input type="checkbox"
-                            checked={selected.has(p.id)}
-                            onChange={() => toggleOne(p.id)}
-                            className="w-4 h-4 rounded text-indigo-600 cursor-pointer" />
-                        </td>
+                        {isOwner && (
+                          <td className="pl-6 py-3">
+                            <input type="checkbox"
+                              checked={selected.has(p.id)}
+                              onChange={() => toggleOne(p.id)}
+                              className="w-4 h-4 rounded text-indigo-600 cursor-pointer" />
+                          </td>
+                        )}
                         <td className="px-6 py-3 font-medium text-gray-900">
                           <div className="flex items-center gap-2">
                             {p.name}
@@ -375,7 +423,9 @@ export default function Products() {
                         <td className="px-6 py-3">
                           <div className="flex gap-2">
                             <button onClick={() => setModal(p)} className="p-1 text-gray-400 hover:text-indigo-600"><Pencil size={16} /></button>
-                            <button onClick={() => handleDelete(p.id, p.name)} className="p-1 text-gray-400 hover:text-red-600"><Trash2 size={16} /></button>
+                            {isOwner && (
+                              <button onClick={() => handleDelete(p.id, p.name)} className="p-1 text-gray-400 hover:text-red-600"><Trash2 size={16} /></button>
+                            )}
                           </div>
                         </td>
                       </tr>
@@ -385,6 +435,7 @@ export default function Products() {
               </tbody>
             </table>
           </div>
+          <Pagination pagination={pagination} onPage={(p) => setPage(p)} />
         </div>
       )}
 
@@ -392,7 +443,7 @@ export default function Products() {
         <ProductModal
           product={modal === "add" ? null : modal}
           onClose={() => setModal(null)}
-          onSave={() => { setModal(null); load(); }}
+          onSave={() => { setModal(null); loadProducts(); loadStats(); }}
         />
       )}
     </div>

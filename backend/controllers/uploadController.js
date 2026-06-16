@@ -111,10 +111,12 @@ async function insertSales(rows, userId) {
   const errors = [];
 
   // Pre-fetch products for name-based lookups
-  const productsResult = await db.execute("SELECT id, name FROM products");
+  const productsResult = await db.execute("SELECT id, name FROM products WHERE archived_at IS NULL");
   const productsByName = {};
+  const productNamesById = {};
   for (const p of productsResult.rows) {
     productsByName[p.name.toLowerCase()] = p.id;
+    productNamesById[p.id] = p.name;
   }
 
   for (const row of rows) {
@@ -145,10 +147,12 @@ async function insertSales(rows, userId) {
       if (!saleDate) saleDate = new Date().toISOString().split("T")[0];
 
       await db.execute({
-        sql: `INSERT INTO sales (product_id, quantity_sold, sale_price, total_amount, sale_date, customer_name, payment_method, notes, created_by)
-              VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        sql: `INSERT INTO sales (product_id, product_name, quantity_sold, sale_price, total_amount, sale_date, customer_name, payment_method, notes, created_by)
+              VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
         args: [
-          product_id, quantity, price, total, saleDate,
+          product_id,
+          productNamesById[product_id] || productName || null,
+          quantity, price, total, saleDate,
           row.customer_name || row.customer || null,
           row.payment_method || row.payment || null,
           row.notes || null,

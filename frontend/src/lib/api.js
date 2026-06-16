@@ -16,6 +16,13 @@ async function request(path, options = {}) {
   return data;
 }
 
+function buildQuery(params = {}) {
+  const q = new URLSearchParams(
+    Object.entries(params).filter(([, v]) => v !== undefined && v !== null && v !== "")
+  ).toString();
+  return q ? `?${q}` : "";
+}
+
 // Auth
 export const login = (email, password) =>
   request("/auth/login", { method: "POST", body: JSON.stringify({ email, password }) });
@@ -25,8 +32,8 @@ export const register = (username, email, password) =>
 
 export const getMe = () => request("/auth/me");
 
-// Products
-export const getProducts = () => request("/products");
+// Products — returns { data, pagination }
+export const getProducts = (params = {}) => request(`/products${buildQuery(params)}`);
 export const getProduct = (id) => request(`/products/${id}`);
 export const createProduct = (data) =>
   request("/products", { method: "POST", body: JSON.stringify(data) });
@@ -40,8 +47,8 @@ export const getLowStock = () => request("/products/alerts/low-stock");
 export const getExpiring = (days = 90) => request(`/products/alerts/expiring?days=${days}`);
 export const getCategoryStats = () => request("/products/stats/by-category");
 
-// Sales
-export const getSales = () => request("/sales");
+// Sales — returns { data, pagination, total_revenue }
+export const getSales = (params = {}) => request(`/sales${buildQuery(params)}`);
 export const createSale = (data) =>
   request("/sales", { method: "POST", body: JSON.stringify(data) });
 export const getSalesStats = () => request("/sales/stats");
