@@ -64,7 +64,7 @@ All routes are under `/api`. Everything except register and login needs a `Beare
 # backend
 cd backend
 npm install
-# create backend/.env (see table below); with no TURSO_DATABASE_URL a local SQLite file is used
+cp .env.example .env   # with no TURSO_DATABASE_URL a local SQLite file is used
 npm run db:init
 npm run dev            # http://localhost:5000
 
